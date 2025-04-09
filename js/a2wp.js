@@ -67,9 +67,7 @@ class A2WP {
     }
 
     // ADD TO POST: activity categories, age groups
-    async postData(url, endpoint, content, id = undefined, author = undefined, title = undefined, status = undefined, slug = undefined) {
-        if (id !== "undefined") endpoint = endpoint + `/${id}`; 
-
+    async postData({url, endpoint, content, author = null, title = null, status = null, slug = null}) {
         try {
             const response = await fetch(`${url}${endpoint}`, {
                 method: "POST",
@@ -78,11 +76,11 @@ class A2WP {
                   "X-WP-Nonce": apiData.nonce
                 }, 
                 body: JSON.stringify({
-                    "title": `${title}`, 
-                    "status": `${status}`,
-                    "slug": `${slug}`,
-                    "content": `${content}`, 
-                    "author": `${author}`
+                    "title": title, 
+                    "status": status,
+                    "slug": slug,
+                    "content": content, 
+                    "author": author
                 })
             }).then(function(response) {
                 if (!response.ok) {
@@ -111,13 +109,17 @@ class A2WP {
 
         let parser = new DOMParser, 
             page = parser.parseFromString(template, "text/html"), 
-            check; 
+            wrapper1 = page.querySelector(".amilia-wp-page-wrapper-1"),
+            check;  
 
         this.fetchData(this.url1, "POST", "Amilia", "activities").then(amObj => {
-            if (typeof amObj == "undefined") return; // Will this work?
+            if (typeof amObj == "undefined") return; 
 
-            // [amObject[0]] for testing only, change back to amObj once done
-            [amObj[0]].forEach(amItem => {
+            // *** Remove this when done testing; 
+            // currently only allows posting of 2 items
+            amObj = [amObj[0], amObj[1]]; 
+
+            amObj.forEach((amItem, amIndex, amArray) => {
                 this.fetchData(`${this.url2}${this.getEndpoint}`, "GET", "Wordpress").then(wpObj => {
                     if (typeof wpObj == "undefined") return; // Not receiving anything
 
@@ -133,10 +135,7 @@ class A2WP {
                     if (!check) {
                         // Everything that a custom function would possibly need 
                         // should be passed in here
-
-                        // Maybe save to global, then post if checked, 
-                        // but this is a last ditch solution
-                        this.customFunc([page, amItem, this.postData, this.url2, this.postEndpoint]); 
+                        this.customFunc({page: page, amItem: amItem, amIndex: amIndex, amArray: amArray, wrapper1: wrapper1, postData: this.postData, url: this.url2, endpoint: this.postEndpoint}); 
                     }
                 }); 
             }); 
@@ -147,15 +146,11 @@ class A2WP {
 // ---- Make your custom functions here ----
 
 // Modifies activity-template.html and pushes the new activity to WP
-function updateAct(data = [page => page, amItem => amItem, postData => postData, url => url, endpoint => endpoint]) {
+function updateAct({page, amItem, postData, url, endpoint}) {
     let locations = ""; 
-    data.amItem.Schedules[0].Locations.forEach(location => {
+    amItem.Schedules[0].Locations.forEach(location => {
         locations += `${location.Name}<br>`; 
     });
-
-    const amItem = data.amItem; 
-    let page = data.page; 
-
     const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
 
     page.querySelector(".amilia-wp-activity-schedule-summary").innerHTML = amItem.ScheduleSummary; 
@@ -169,18 +164,14 @@ function updateAct(data = [page => page, amItem => amItem, postData => postData,
     page.querySelector(".amilia-wp-activity-img").alt = `${amItem.Name} image`; 
     page.querySelector(".amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`; 
     
-    data.postData({url: data.url, endpoint: data.endpoint, content: page.documentElement.innerHTML, status: "publish", slug: `activity-${amItem.Id}`, author: "appsadmin"}); 
+    // *** API TEST will be removed from title field once out of testing stage
+    postData({url: url, endpoint: endpoint, content: page.documentElement.innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`}); 
 
     console.log(`Activity ${amItem.Id} created`);
 }
 
 // Modifies page-template.html and updates the things-to-do page
-function updatePage(data = [page => page, amItem => amItem, postData => postData, url => url, endpoint => endpoint]) {
-    let page = data.page; 
-    let amItem = data.amItem; 
-
-    // Pass index in forEach so I know which item is last
-
+function updatePage({page, amItem, amIndex, amArray, wrapper1, postData, url, endpoint}) {
     let wrapper2 = page.createElement("div"); 
     wrapper2.setAttribute("class", "amilia-wp-page-wrapper-2"); 
 
@@ -188,12 +179,17 @@ function updatePage(data = [page => page, amItem => amItem, postData => postData
                                 <img class="amilia-wp-page-img" src="${amItem.PictureUrl}" alt="${amItem.Name} image">
                             </a>
                             <h3 class="amilia-wp-page-name">${amItem.Name}</h3>
-                            <p class="amilia-wp-page-schedule">${amItem.ScheduleSummary}</p>`; 
+                            <p class="amilia-wp-page-schedule">${amItem.ScheduleSummary}</p>`;
+    wrapper1.appendChild(wrapper2); 
+
+    if (amIndex >= amArray.length - 1) {
+        postData({url: url, endpoint: endpoint, content: page.documentElement.innerHTML}); 
+    }
 }
 
 // ---- Call your objects here ----
 
-let actUpdater = new A2WP("activities", "activities", `${apiData.path}/html/activity-template.html`, updateAct); 
+let actUpdater = new A2WP("activities", "activities/", `${apiData.path}/html/activity-template.html`, updateAct); 
 actUpdater.call(); 
 
 let pageUpdater = new A2WP("activities", "pages/14323", `${apiData.path}/html/page-template.html`, updatePage); 
