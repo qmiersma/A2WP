@@ -72,11 +72,12 @@ function pathfinder_child_scripts() {
 }
 add_action( 'wp_enqueue_scripts', 'pathfinder_child_scripts' );
 
-/* -------- Amilia > Wordpress REST API --------*/
+/* -------- Amilia > Wordpress API --------*/
 function amilia_to_wp() {
-	wp_enqueue_script('amilia_api_call', get_stylesheet_directory_uri() . '/js/amilia-api-call.js', array(), '', true); 
+	wp_enqueue_script('a2wp', get_stylesheet_directory_uri() . '/js/a2wp.js', array(), '', true); 
+	wp_enqueue_style('things-to-do-theme', get_stylesheet_directory_uri(). '/css/things-to-do.css');
     
-    wp_localize_script('amilia_api_call', 'apiData', array(
+    wp_localize_script('a2wp', 'apiData', array(
     	'nonce' => wp_create_nonce('wp_rest'), 
         'path' => get_stylesheet_directory_uri()
     )); 

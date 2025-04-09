@@ -1,26 +1,18 @@
 class A2WP {
-    constructor(getEndpoint, postEndpoint, templatePath, customFunc) {
+    constructor(getEndpoint, postEndpoint, templatePath, customFunc, targetPath) {
         this.url1 = "https://amilia-proxy.azurewebsites.net/api/callamilia"; 
         this.url2 = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/"; 
         this.getEndpoint = getEndpoint; 
         this.postEndpoint = postEndpoint; 
         this.templatePath = templatePath; 
         this.customFunc = customFunc; 
+        this.targetPath = targetPath; 
     }
 
-    // Change this!!
-    checkTimePassed() {
-        if (localStorage.previousDay == "undefined") {
-            localStorage.setItem("previousDay", new Date().toDateString());
-            return true; 
-        } 
-    
-        const currentDate = new Date().toDateString(); 
-    
-        if (currentDate <= localStorage.previousDay) return false; 
-    
-        localStorage.previousDay = currentDate; 
-        return true; 
+    checkRun() {
+        const currentPath = window.location.pathname.split("/")[1]; 
+
+        return (currentPath == this.targetPath) ? true : false; 
     }
 
     async fetchTemplate(path) {
@@ -37,7 +29,6 @@ class A2WP {
         }
     }
 
-    // Endpoint becomes part of url in one case
     async fetchData(url, method, site, endpoint = null) {
         let fetchInfo = {
             method: method, 
@@ -56,7 +47,7 @@ class A2WP {
     
                 return response.json(); 
             }).then(function(data) {
-                console.log(data); 
+                // console.log(data); <-- for debugging
                 return data; 
             }); 
     
@@ -89,7 +80,7 @@ class A2WP {
     
                 return response.json(); 
             }).then(function(data) {
-                console.log(data); 
+                // console.log(data); <-- for debugging
                 return data; 
             }); 
     
@@ -100,9 +91,9 @@ class A2WP {
     }
 
     async call() {
-        //if (!this.checkTimePassed()) return; 
+        if (!this.checkRun()) return; 
 
-        console.log("Getting HTML templates"); 
+        console.log("A2WP script is running"); 
         let template = await this.fetchTemplate(this.templatePath); 
 
         if (!template) return; 
@@ -121,13 +112,11 @@ class A2WP {
 
             amObj.forEach((amItem, amIndex, amArray) => {
                 this.fetchData(`${this.url2}${this.getEndpoint}`, "GET", "Wordpress").then(wpObj => {
-                    if (typeof wpObj == "undefined") return; // Not receiving anything
+                    if (typeof wpObj == "undefined") return; 
 
                     wpObj.some(function(wpItem) {
-                        console.log(`Checking if activity ${amItem.Id} already exists`); 
-
                         check = (`activity-${amItem.Id}` == `${wpItem.slug}`); 
-                        console.log(`activity-${amItem.Id} == ${wpItem.slug}`, check);
+                        // console.log(`activity-${amItem.Id} == ${wpItem.slug}`, check); <-- for debugging
 
                         return check; // If true, breaks loop
                     }); 
@@ -189,8 +178,8 @@ function updatePage({page, amItem, amIndex, amArray, wrapper1, postData, url, en
 
 // ---- Call your objects here ----
 
-let actUpdater = new A2WP("activities", "activities/", `${apiData.path}/html/activity-template.html`, updateAct); 
+let actUpdater = new A2WP("activities", "activities/", `${apiData.path}/html/activity-template.html`, updateAct, "things-to-do"); 
 actUpdater.call(); 
 
-let pageUpdater = new A2WP("activities", "pages/14323", `${apiData.path}/html/page-template.html`, updatePage); 
+let pageUpdater = new A2WP("activities", "pages/14323", `${apiData.path}/html/page-template.html`, updatePage, "things-to-do"); 
 pageUpdater.call(); 
