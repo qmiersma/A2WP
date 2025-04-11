@@ -159,7 +159,9 @@ class A2WP {
         // Needs to do something if wpObj is null
         
         amObj.some(amItem => {
-            return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.postEndpoint});
+            if (amItem.Status != "Hidden") {
+                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.postEndpoint});
+            }
         });
     }
 }
