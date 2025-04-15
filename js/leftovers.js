@@ -1,3 +1,110 @@
+const testImg = new Image(); 
+            testImg.src = imgUrl; 
+
+            const canvas = document.createElement("canvas"); 
+            const ctx = canvas.getContext("2d"); 
+
+            testImg.onload = () => {
+                canvas.width = testImg.width;
+                canvas.height = testImg.height;
+                ctx.drawImage(testImg, 0, 0);
+                
+                // Get the image data
+                const imageData = ctx.getImageData(0, 0, testImg.width, testImg.height);
+                const data = imageData.data;
+
+                console.log("DATA -->", data); 
+            }
+
+
+
+var oReq = new XMLHttpRequest();
+            oReq.open("GET", `${imgUrl}`, true);
+            oReq.responseType = "arraybuffer";
+
+            oReq.onload = function (oEvent) {
+                var arrayBuffer = oReq.response; // Note: not oReq.responseText
+                if (arrayBuffer) {
+                    var binary = ''
+                    var byteArray = new Uint8Array(arrayBuffer);
+                    for (var i = 0; i < byteArray.byteLength; i++) {
+                        binary += String.fromCharCode(byteArray[i])
+                    }
+                    console.log("BINARY -->", binary); 
+                }
+            };
+
+            oReq.send(null);
+
+
+
+console.log("Hey!"); 
+            let idString = "1234567890abcdefghijklmnopqrstuvwxyz"; 
+            let imgId = ""; 
+            for (let i = 0; i < 5; i++) {
+                imgId += idString[Math.floor(Math.random() * idString.length)]; 
+            }
+
+            let imgType = imgUrl.split(".").pop().toLowerCase(); 
+            let imgFileName = `${imgId}.${imgType}`; 
+
+
+            // let fetchTest = {
+            //     mode: "no-cors",
+            //     method: "GET" 
+            //     // headers: {
+            //     //     "Content-Type": `image/${imgType}`
+            //     // }
+            // }
+
+            async function handleResponse(data) {
+                postInfo = {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": `image/${imgType}`,
+                        "X-WP-Nonce": apiData.nonce, 
+                        "Content-Disposition": `attachment; filename="${imgFileName}"`
+                    }, 
+                    body: data
+                }
+
+                try {
+                    const response = await fetch(`${url}${endpoint}`, postInfo).then(function(response) {
+                        if (!response.ok) {
+                            throw new Error("Unable to post data"); 
+                        }
+            
+                        return response.json(); 
+                    }).then(function(data) {
+                        console.log(data); // <-- for debugging
+                        return data; 
+                    }); 
+            
+                    return await response; 
+                } catch(error) {
+                    console.log(error); 
+                }
+            }
+
+            const script = document.createElement('script');
+            script.src = `${imgUrl}?callback=handleResponse`;
+            script.type = "text/javascript"; 
+            document.head.appendChild(script);
+            // const response = await fetch(imgUrl, fetchTest);
+
+            // console.log(response); 
+            // const blob = await response.blob();
+            // const formData = new FormData();
+            // formData.append('image', blob, imgFileName); 
+
+
+
+
+
+
+
+
+
 class A2WP {
        constructor({getEndpoint, postEndpoint, templatePath, customFunc, targetPath, timer}) {
            this.url1 = "https://amilia-proxy.azurewebsites.net/api/callamilia"; 
