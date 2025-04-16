@@ -1,5 +1,5 @@
 class A2WP {
-    constructor({getEndpoint, postEndpoint, templatePath, customFunc, targetPath, args, timer}) {
+    constructor({getEndpoint, postEndpoint, templatePath, customFunc, targetPath, args, timer, catDefs}) {
         this.url1 = "https://amilia-proxy.azurewebsites.net/api/callamilia"; 
         this.url2 = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/"; 
         this.url3 = "https://amilia-img-proxy.azurewebsites.net/api/GetImg";
@@ -10,6 +10,7 @@ class A2WP {
         this.targetPath = targetPath; 
         this.args = args; 
         this.timer = timer; 
+        this.catDefs = catDefs; 
     }
 
     checkRun(timer) {
@@ -87,64 +88,55 @@ class A2WP {
         }
     }
 
-    // ADD TO POST: activity categories, age groups
-    async postData({url, endpoint, content = null, author = null, title = null, status = null, slug = null, imgUrl = null}) {
-        let postInfo; 
+    async postData({url, endpoint, content = null, author = null, title = null, status = null, slug = null, actCats = null, ageGroups = null, imgUrl = null}) {
+        imgUrl = null; // Testing only
+        let headers; 
+        let body; 
 
         if (imgUrl) {
-            console.log("Running"); 
-            
-            try {
-                const response = await fetch(this.url3, {
-                    method: "POST", 
-                    body: {
-                        "imgUrl": imgUrl
-                    }
-                }).then(function(response) {
-                    return response.blob(); 
-                }).then(function(data) {
-                    console.log(data); 
-                    return data; 
-                });
-        
-                return response;
-            } catch(error) {
-                console.log(error); 
+            headers = {
+                "Content-Type": "image/jpeg" // may be unnecessary
             }
 
-
+            body = {
+                "imgUrl": imgUrl
+            }
         } else {
-            postInfo = {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json", 
-                    "X-WP-Nonce": apiData.nonce
-                }, 
-                body: JSON.stringify({
-                    "title": title, 
-                    "status": status,
-                    "slug": slug,
-                    "content": content, 
-                    "author": author
-                })
+            headers = {
+                "Content-Type": "application/json", 
+                "X-WP-Nonce": apiData.nonce
             }
 
-            try {
-                const response = await fetch(`${url}${endpoint}`, postInfo).then(function(response) {
-                    if (!response.ok) {
-                        throw new Error("Unable to post data"); 
-                    }
-        
-                    return response.json(); 
-                }).then(function(data) {
-                    console.log(data); // <-- for debugging
-                    return data; 
-                }); 
-        
-                return await response; 
-            } catch(error) {
-                console.log(error); 
+            body = {
+                "title": title, 
+                "status": status,
+                "slug": slug,
+                "content": content, 
+                "author": author, 
+                "activity-categories": actCats,
+                "age-groups": ageGroups
             }
+        }
+
+        try {
+            const response = await fetch(`${url}${endpoint}`, {
+                method: "POST", 
+                headers: headers, 
+                body: JSON.stringify(body)
+            }).then(function(response) {
+                if (!response.ok) {
+                    throw new Error("Unable to post data"); 
+                }
+    
+                return (imgUrl) ? response.blob() : response.json(); 
+            }).then(function(data) {
+                console.log(data); // <-- for debugging
+                return data; 
+            }); 
+    
+            return await response; 
+        } catch(error) {
+            console.log(error); 
         }
     }
 
@@ -190,7 +182,7 @@ class A2WP {
         
         amObj.some(amItem => {
             if (amItem.Status != "Hidden") {
-                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.postEndpoint});
+                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.postEndpoint, catDefs: this.catDefs});
             }
         });
     }

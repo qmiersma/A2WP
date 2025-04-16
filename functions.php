@@ -75,7 +75,8 @@ add_action( 'wp_enqueue_scripts', 'pathfinder_child_scripts' );
 /* -------- Amilia > Wordpress API --------*/
 function amilia_to_wp() {
 	wp_enqueue_script('a2wp', get_stylesheet_directory_uri() . '/js/a2wp.js', array(), '', true); 
-	wp_enqueue_style('things-to-do-theme', get_stylesheet_directory_uri(). '/css/things-to-do.css');
+	wp_enqueue_script('call-a2wp', get_stylesheet_directory_uri() . '/js/call-a2wp.js', array(), '', true); 
+	//wp_enqueue_style('things-to-do-theme', get_stylesheet_directory_uri(). '/css/things-to-do.css');
     
     wp_localize_script('a2wp', 'apiData', array(
     	'nonce' => wp_create_nonce('wp_rest'), 
@@ -287,9 +288,12 @@ $args = array(
 	'hierarchical'               => true,
 	'public'                     => true,
 	'show_ui'                    => true,
+	'show_in_rest'        		 => true,
 	'show_admin_column'          => true,
 	'show_in_nav_menus'          => true,
 	'show_tagcloud'              => true,
+	'rest_base'           		 => 'activity-categories',
+    'rest_controller_class' 	 => 'WP_REST_Terms_Controller'
 );
 register_taxonomy( 'activity-category', array( 'activities' ), $args );
 
@@ -317,6 +321,7 @@ $args = array(
 	'hierarchical'               => true,
 	'public'                     => true,
 	'show_ui'                    => true,
+	'show_in_rest'        		 => true,
 	'show_admin_column'          => true,
 	'show_in_nav_menus'          => true,
 	'show_tagcloud'              => true,
@@ -347,9 +352,12 @@ $args = array(
 	'hierarchical'               => true,
 	'public'                     => true,
 	'show_ui'                    => true,
+	'show_in_rest'        		 => true,
 	'show_admin_column'          => true,
 	'show_in_nav_menus'          => true,
 	'show_tagcloud'              => true,
+	'rest_base'           		 => 'age-groups',
+    'rest_controller_class' 	 => 'WP_REST_Terms_Controller'
 );
 register_taxonomy( 'age-group', array( 'activities' ), $args );
 

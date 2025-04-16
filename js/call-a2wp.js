@@ -1,7 +1,7 @@
 // ---- Make your custom functions here ----
 
 // Modifies activity-template.html and pushes the new activity to WP
-function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint}) {
+function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, catDefs}) {
     let check = false; 
     if (wpObj == "undefined") wpObj = []; 
 
@@ -20,9 +20,19 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint})
         //     .then(data => {
         //         console.log("IMG ID -->", data); 
         //     }); 
+
+        let max = amItem.Age.Max; 
+        let min = amItem.Age.Min; 
+        let actCats = catDefs["Categories"][amItem.ProgramName]; 
+        let ageGroups = []; 
+
+        for (let i = 0; min <= max; i++) {
+            if (min <= catDefs["Ages"]["Max"][i]) ageGroups.push(catDefs["Ages"]["Id"][i]); 
+            min = catDefs["Ages"]["Max"][i]; 
+        }
         
         // *** API TEST will be removed from title field once out of testing stage
-        postData({url: url, endpoint: endpoint, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`}); 
+        postData({url: url, endpoint: endpoint, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups}); 
     
         console.log(`Activity ${amItem.Id} created`);
     }
@@ -30,7 +40,7 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint})
     return false; 
 }
 
-function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint}) {
+function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, catDefs}) {
     let check = false; 
     let id; 
     if (wpObj == "undefined") wpObj = []; 
@@ -50,8 +60,18 @@ function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint})
         //     .then(data => {
         //         console.log("IMG ID -->", data); 
         //     }); 
+
+        let max = amItem.Age.Max; 
+        let min = amItem.Age.Min; 
+        let actCats = catDefs["Categories"][amItem.ProgramName]; 
+        let ageGroups = []; 
+
+        for (let i = 0; min <= max; i++) {
+            if (min <= catDefs["Ages"]["Max"][i]) ageGroups.push(catDefs["Ages"]["Id"][i]); 
+            min = catDefs["Ages"]["Max"][i]; 
+        }
     
-        postData({url: url, endpoint: `${endpoint}${id}`, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`}); 
+        postData({url: url, endpoint: `${endpoint}${id}`, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups}); 
     
         console.log(`Activity ${amItem.Id} updated`);
 
@@ -62,6 +82,21 @@ function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint})
 }
 
 // ---- Call your objects here ----
+
+// Links VPA programs to 1 or more WP post categories
+const actCats = {
+    "Categories" : {
+        "Arts, Culture, and Education 2025": 67, 
+        "Athletics 2025": 66, 
+        "Day Camps Summer 2025": 68, 
+        "Events 2025": 85, 
+        "Health and Wellness 2025": 69
+    }, 
+    "Ages": {
+        "Max": [5, 12, 19, 54, 99, 100], 
+        "Id": [2, 3, 4, 5, 6, 105]
+    }
+}
 
 let actCreator = new A2WP({
     getEndpoint: "activities",
@@ -76,7 +111,8 @@ let actCreator = new A2WP({
         "amilia": null, 
         "wp": "per_page=100"
     },
-    timer: "hour"
+    timer: "hour", 
+    catDefs: actCats
 });
 actCreator.call(); 
 
@@ -93,6 +129,7 @@ let actUpdater = new A2WP({
         "amilia": null, 
         "wp": `slug=${window.location.pathname.split("/")[2]}`
     },
-    timer: "none"
+    timer: "none", 
+    catDefs: actCats
 });  
 actUpdater.call(); 
