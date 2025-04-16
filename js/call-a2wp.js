@@ -21,14 +21,19 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
         //         console.log("IMG ID -->", data); 
         //     }); 
 
-        let max = amItem.Age.Max; 
-        let min = amItem.Age.Min; 
         let actCats = catDefs["Categories"][amItem.ProgramName]; 
         let ageGroups = []; 
 
-        for (let i = 0; min <= max; i++) {
-            if (min <= catDefs["Ages"]["Max"][i]) ageGroups.push(catDefs["Ages"]["Id"][i]); 
-            min = catDefs["Ages"]["Max"][i]; 
+        if (amItem.Age) {
+            let max = amItem.Age.Max; 
+            let min = amItem.Age.Min; 
+
+            for (let i = 0; (min <= max) && (i < catDefs["Ages"]["Max"].length); i++) {
+                if (min <= catDefs["Ages"]["Max"][i]) {
+                    ageGroups.push(catDefs["Ages"]["Id"][i]); 
+                    min = catDefs["Ages"]["Max"][i];
+                } 
+            }
         }
         
         // *** API TEST will be removed from title field once out of testing stage
@@ -61,14 +66,19 @@ function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
         //         console.log("IMG ID -->", data); 
         //     }); 
 
-        let max = amItem.Age.Max; 
-        let min = amItem.Age.Min; 
         let actCats = catDefs["Categories"][amItem.ProgramName]; 
         let ageGroups = []; 
 
-        for (let i = 0; min <= max; i++) {
-            if (min <= catDefs["Ages"]["Max"][i]) ageGroups.push(catDefs["Ages"]["Id"][i]); 
-            min = catDefs["Ages"]["Max"][i]; 
+        if (amItem.Age) {
+            let max = amItem.Age.Max; 
+            let min = amItem.Age.Min; 
+
+            for (let i = 0; (min <= max) && (i < catDefs["Ages"]["Max"].length); i++) {
+                if (min <= catDefs["Ages"]["Max"][i]) {
+                    ageGroups.push(catDefs["Ages"]["Id"][i]); 
+                    min = catDefs["Ages"]["Max"][i];
+                } 
+            }
         }
     
         postData({url: url, endpoint: `${endpoint}${id}`, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups}); 
@@ -87,14 +97,15 @@ function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
 const actCats = {
     "Categories" : {
         "Arts, Culture, and Education 2025": 67, 
+        "Aquatics 2025": [83, 69],
         "Athletics 2025": 66, 
         "Day Camps Summer 2025": 68, 
         "Events 2025": 85, 
         "Health and Wellness 2025": 69
     }, 
     "Ages": {
-        "Max": [5, 12, 19, 54, 99, 100], 
-        "Id": [2, 3, 4, 5, 6, 105]
+        "Max": [5, 12, 19, 54, 55, 99], 
+        "Id": [2, 3, 4, 5, 105, 6]
     }
 }
 
