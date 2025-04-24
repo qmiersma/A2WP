@@ -79,7 +79,7 @@ function amilia_to_wp() {
 	//wp_enqueue_style('things-to-do-theme', get_stylesheet_directory_uri(). '/css/things-to-do.css');
     
     wp_localize_script('a2wp', 'apiData', array(
-    	'nonce' => wp_create_nonce('wp_rest'), 
+    	'nonce' => wp_create_nonce('wp_rest'),
         'path' => get_stylesheet_directory_uri()
     )); 
 }

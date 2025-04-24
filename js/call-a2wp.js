@@ -1,7 +1,7 @@
 // ---- Make your custom functions here ----
 
 // Modifies activity-template.html and pushes the new activity to WP
-function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, catDefs}) {
+function createAct({page, wpObj, amItem, postData, updateActDOM, createImg, url, endpoint, catDefs}) {
     let check = false; 
     if (wpObj == "undefined") wpObj = []; 
 
@@ -14,12 +14,6 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
 
     if (!check) {
         const newPage = updateActDOM({page: page, amItem: amItem}); 
-    
-        // Creates featured media
-        // postData({url: url, endpoint: "media", imgUrl: amItem.PictureUrl})
-        //     .then(data => {
-        //         console.log("IMG ID -->", data); 
-        //     }); 
 
         let actCats = catDefs["Categories"][amItem.ProgramName]; 
         let ageGroups = []; 
@@ -37,7 +31,7 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
         }
         
         // *** API TEST will be removed from title field once out of testing stage
-        postData({url: url, endpoint: endpoint, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups}); 
+        postData({url: url, endpoint: endpoint, title: `API TEST: ${amItem.Name}`, author: 43, content: newPage.querySelector("body").innerHTML, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups, imgUrl: amItem.PictureUrl}); 
     
         console.log(`Activity ${amItem.Id} created`);
     }
@@ -45,9 +39,10 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
     return false; 
 }
 
-function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, catDefs}) {
+function updateAct({page, wpObj, amItem, postData, updateActDOM, createImg, url, endpoint, catDefs}) {
     let check = false; 
     let id; 
+    let featuredImg; 
     if (wpObj == "undefined") wpObj = []; 
 
     check = wpObj.some(function(wpItem) {
@@ -59,12 +54,6 @@ function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
 
     if (check) {
         const newPage = updateActDOM({page: page, amItem: amItem}); 
-
-        // Creates featured media
-        // postData({url: url, endpoint: "media", imgUrl: amItem.PictureUrl})
-        //     .then(data => {
-        //         console.log("IMG ID -->", data); 
-        //     }); 
 
         let actCats = catDefs["Categories"][amItem.ProgramName]; 
         let ageGroups = []; 
@@ -81,7 +70,7 @@ function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
             }
         }
     
-        postData({url: url, endpoint: `${endpoint}${id}`, content: newPage.querySelector("body").innerHTML, author: 43, title: `API TEST: ${amItem.Name}`, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups}); 
+        postData({url: url, endpoint: `${endpoint}${id}`, title: `API TEST: ${amItem.Name}`, author: 43, content: newPage.querySelector("body").innerHTML, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups, imgUrl: amItem.PictureUrl}); 
     
         console.log(`Activity ${amItem.Id} updated`);
 

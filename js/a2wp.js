@@ -1,8 +1,7 @@
 class A2WP {
-    constructor({getEndpoint, postEndpoint, templatePath, customFunc, targetPath, args, timer, catDefs}) {
+    constructor({getEndpoint, postEndpoint, templatePath, customFunc, targetPath, args, timer = "none", catDefs = null}) {
         this.url1 = "https://amilia-proxy.azurewebsites.net/api/callamilia"; 
         this.url2 = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/"; 
-        this.url3 = "https://amilia-img-proxy.azurewebsites.net/api/GetImg";
         this.getEndpoint = getEndpoint; 
         this.postEndpoint = postEndpoint; 
         this.templatePath = templatePath; 
@@ -60,81 +59,63 @@ class A2WP {
     }
 
     async fetchData({url, method, site, endpoint = null, arg = null}) {
-        let fetchInfo = {
+        let info = {
             method: method, 
             headers: {
                 "Content-Type": "application/json"
             }
-        }
-
-        if (endpoint) fetchInfo.body = JSON.stringify({"endpoint": endpoint}); 
+        }; 
         if (arg) url = `${url}?${arg}`; 
+        if (endpoint) info.body = JSON.stringify({"endpoint": endpoint}); 
 
         try {
-            const response = await fetch(url, fetchInfo).then(function(response) {
-                if (!response.ok) {
-                    throw new Error(`Unable to fetch data from ${site}`); 
-                } 
+            let getRes = await fetch(url, info); 
+
+            if (!getRes.ok) throw new Error(`Unable to fetch data from ${site}`);
     
-                return response.json(); 
-            }).then(function(data) {
-                console.log(data); // <-- for debugging
-                return data; 
-            }); 
-    
-            return await response;
+            getRes = await getRes.json(); 
+            console.log(getRes); // Testing
+            return getRes;
         } catch(error) {
             console.log(error); 
         }
     }
 
-    async postData({url, endpoint, content = null, author = null, title = null, status = null, slug = null, actCats = null, ageGroups = null, imgUrl = null}) {
-        imgUrl = null; // Testing only
-        let headers; 
-        let body; 
-
-        if (imgUrl) {
-            headers = {
-                "Content-Type": "image/jpeg" // may be unnecessary
-            }
-
-            body = {
-                "imgUrl": imgUrl
-            }
-        } else {
-            headers = {
-                "Content-Type": "application/json", 
-                "X-WP-Nonce": apiData.nonce
-            }
-
-            body = {
-                "title": title, 
-                "status": status,
-                "slug": slug,
-                "content": content, 
-                "author": author, 
-                "activity-categories": actCats,
-                "age-groups": ageGroups
-            }
-        }
-
+    async postData({url, endpoint, title = null, author = null, content = null, status = null, slug = null, actCats = null, ageGroups = null, imgUrl = null}) {
         try {
-            const response = await fetch(`${url}${endpoint}`, {
+            // Creates post
+            let postRes = await fetch(`${url}${endpoint}`, {
                 method: "POST", 
-                headers: headers, 
-                body: JSON.stringify(body)
-            }).then(function(response) {
-                if (!response.ok) {
-                    throw new Error("Unable to post data"); 
-                }
-    
-                return (imgUrl) ? response.blob() : response.json(); 
-            }).then(function(data) {
-                console.log(data); // <-- for debugging
-                return data; 
+                headers: {
+                    "Content-Type": "application/json", 
+                    "X-WP-Nonce": apiData.nonce
+                }, 
+                body: JSON.stringify({
+                    title, 
+                    status, 
+                    slug, 
+                    content, 
+                    author, 
+                    "activity-categories": actCats, 
+                    "age-groups": ageGroups
+                })
             }); 
+
+            if (!postRes.ok) throw new Error("Unable to create post"); 
+            postRes = await postRes.json(); 
+
+            // Creates featured media (if not already set)
+            if (postRes.featured_media == 0) {
+                let postRes2 = fetch("https://amilia-img-proxy.azurewebsites.net/api/GetImg", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        "getUrl": imgUrl, 
+                        "postUrl": `${url}${endpoint}${postRes.id}`
+                    })
+                }); 
     
-            return await response; 
+                if (!postRes2.ok) throw new Error("Unable to create image"); 
+            }
         } catch(error) {
             console.log(error); 
         }
@@ -154,8 +135,6 @@ class A2WP {
         page.querySelector("#amilia-wp-activity-register-btn").href = amItem.SecretUrl; 
         page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
         page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
-        page.querySelector("#amilia-wp-activity-img").src = amItem.PictureUrl; 
-        page.querySelector("#amilia-wp-activity-img").alt = `${amItem.Name} image`; 
         page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`; 
 
         return page; 
@@ -182,7 +161,7 @@ class A2WP {
         
         amObj.some(amItem => {
             if (amItem.Status != "Hidden") {
-                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.postEndpoint, catDefs: this.catDefs});
+                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, createImg: this.createImg, url: this.url2, endpoint: this.postEndpoint, catDefs: this.catDefs});
             }
         });
     }
