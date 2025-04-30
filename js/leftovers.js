@@ -14,13 +14,14 @@
 let actCreator = new A2WP({
     amilia: {
         "endpoint": "activities", 
-        "args": "per_page=100" // Optional, if null then ""
+        "args": "per_page=100" // Optional, if null then "" // ARGS ARE ONLY FOR FETCHING DATA
     }, 
     wp: {
         "endpoint": "activities", 
         "args": "status=publish" // Optional
     }, 
-    targetPath: "things-to-do-2/{path?}", 
+    templatePath: whatever, // optional
+    targetPath: "things-to-do-2/{path?}", // CHANGE THIS TO FULL URL!!
     categories: {} // Optional
 });
 actCreator.call(); 
