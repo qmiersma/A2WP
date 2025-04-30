@@ -1,9 +1,9 @@
 class A2WP {
-    constructor({getEndpoint, postEndpoint, templatePath, customFunc, targetPath, args, timer = "none", catDefs = null}) {
-        this.url1 = "https://amilia-proxy.azurewebsites.net/api/callamilia"; 
+    constructor({amEndpoint, wpEndpoint, templatePath, customFunc, targetPath, args, timer = "none", catDefs = null}) {
+        this.url1 = "https://amilia-img-proxy.azurewebsites.net/api/GetAmilia"; 
         this.url2 = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/"; 
-        this.getEndpoint = getEndpoint; 
-        this.postEndpoint = postEndpoint; 
+        this.amEndpoint = amEndpoint; 
+        this.wpEndpoint = wpEndpoint; 
         this.templatePath = templatePath; 
         this.customFunc = customFunc; 
         this.targetPath = targetPath; 
@@ -25,6 +25,10 @@ class A2WP {
         } else {
             const currentDate = new Date().getTime(); 
 
+            // console.log(localStorage.lastChecked); 
+            // console.log(currentDate); 
+            // console.log(((currentDate - localStorage.lastChecked) / 3600000)); 
+
             switch(timer) {
                 case "hour": 
                     if (((currentDate - localStorage.lastChecked) / 3600000) >= 1) {
@@ -40,7 +44,6 @@ class A2WP {
         }
 
         check[2] = true; // Testing
-    
         return (check[0] && check[1] && check[2]); 
     }
 
@@ -48,11 +51,9 @@ class A2WP {
         try {
             const response = await fetch(path); 
     
-            if (!response.ok) {
-                throw new Error("Could not find HTML template file"); 
-            }
+            if (!response.ok) throw new Error("Could not find HTML template file"); 
     
-            return response.text(); 
+            return await response.text(); 
         } catch(error) {
             console.log(error); 
         }
@@ -81,10 +82,10 @@ class A2WP {
         }
     }
 
-    async postData({url, endpoint, title = null, author = null, content = null, status = null, slug = null, actCats = null, ageGroups = null, imgUrl = null}) {
+    async postData({url, endpoint, title = null, author = null, content = null, status = null, slug = null, actCats = null, ageGroups = null, imgUrl = null, id = ""}) {
         try {
             // Creates post
-            let postRes = await fetch(`${url}${endpoint}`, {
+            let postRes = await fetch(`${url}${endpoint}/${id}`, {
                 method: "POST", 
                 headers: {
                     "Content-Type": "application/json", 
@@ -105,17 +106,18 @@ class A2WP {
             postRes = await postRes.json(); 
 
             // Creates featured media (if not already set)
-            if (postRes.featured_media == 0) {
+            if (imgUrl && postRes.featured_media == 0) {
+                console.log("running"); 
                 let postRes2 = fetch("https://amilia-img-proxy.azurewebsites.net/api/GetImg", {
                     method: "POST",
                     body: JSON.stringify({
                         "getUrl": imgUrl, 
-                        "postUrl": `${url}${endpoint}${postRes.id}`
+                        "postUrl": `${url}${endpoint}/${postRes.id}`
                     })
-                }); 
-    
-                if (!postRes2.ok) throw new Error("Unable to create image"); 
+                });  
             }
+
+            console.log(`Activity ${postRes.id} created/updated`);
         } catch(error) {
             console.log(error); 
         }
@@ -127,12 +129,15 @@ class A2WP {
             locations += `${location.Name}<br>`; 
         });
         const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
+
+        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
+        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
     
         page.querySelector("#amilia-wp-activity-schedule-summary").innerHTML = amItem.ScheduleSummary; 
-        page.querySelector("#amilia-wp-activity-dates").innerHTML = `${amItem.StartDate} to ${amItem.EndDate}`; 
+        page.querySelector("#amilia-wp-activity-dates").innerHTML = `${startDate} to ${endDate}`; 
         page.querySelector("#amilia-wp-activity-location").innerHTML = locations; 
         page.querySelector("#amilia-wp-activity-price").innerHTML = price; 
-        page.querySelector("#amilia-wp-activity-register-btn").href = amItem.SecretUrl; 
+        page.querySelector("#amilia-wp-activity-register-btn > a").href = amItem.SecretUrl; 
         page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
         page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
         page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`; 
@@ -151,17 +156,16 @@ class A2WP {
         let parser = new DOMParser, 
             page = parser.parseFromString(template, "text/html"); 
 
-        let amObj = await this.fetchData({url: this.url1, method: "POST", site: "Amilia", endpoint: this.getEndpoint}); 
+        let amObj = await this.fetchData({url: this.url1, method: "POST", site: "Amilia", endpoint: this.amEndpoint}); 
         if (typeof amObj == "undefined") return; // No Amilia data to send
 
-        // Test
-        // amObj = [amObj[1], amObj[13], amObj[21]]; 
+        amObj = (amObj.Items) ? amObj.Items : [amObj]; 
 
-        let wpObj = await this.fetchData({url: `${this.url2}${this.getEndpoint}`, method: "GET", site: "Wordpress", arg: this.args.wp}); 
+        let wpObj = await this.fetchData({url: `${this.url2}${this.wpEndpoint}`, method: "GET", site: "Wordpress", arg: this.args.wp}); 
         
         amObj.some(amItem => {
             if (amItem.Status != "Hidden") {
-                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, createImg: this.createImg, url: this.url2, endpoint: this.postEndpoint, catDefs: this.catDefs});
+                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.wpEndpoint, catDefs: this.catDefs});
             }
         });
     }
