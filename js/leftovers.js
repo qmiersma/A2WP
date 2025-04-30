@@ -20,7 +20,7 @@ let actCreator = new A2WP({
         "endpoint": "activities", 
         "args": "status=publish" // Optional
     }, 
-    targetPath: "things-to-do-2{?path}", 
+    targetPath: "things-to-do-2/{path?}", 
     categories: {} // Optional
 });
 actCreator.call(); 
@@ -77,25 +77,3 @@ check = wpObj.some(function(wpItem) {
               }
           });
 
-
-
-          const axios = require('axios');
-
-module.exports = async function (context, req) {
-    
-    // Created on 2-7-25, should be valid for up to 1 year
-    const token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI1MjY5NDc4IiwiZXhwIjoxNzcwNDc3MzMzLCJpYXQiOjE3Mzg5NDEzMzMsImp0aSI6IlFrdEduWm9OZlBMcGR4N3E3Tk04TVcxTHlackhvRGllQmxEeGx1Z2pWVFpvWjVXc2JHIn0.GLixjhgo-yjQxFbLHiAszZ9eRgzIlearNvASmhuFVTM";
-    const baseUrl = `https://app.amilia.com/api/V3/en/org/sbvpa/${req.body.endpoint}`;
-
-    let response = await axios({
-        url: baseUrl,
-        method: 'GET',
-        headers: {
-            "Authorization": `Bearer ${token}`
-        }, 
-    });
-    context.res = {
-        // status: 200, /* Defaults to 200 */
-        body: response.data.Items
-    };
-}
