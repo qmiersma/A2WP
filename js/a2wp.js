@@ -5,22 +5,23 @@ class A2WP {
         this.amilia.url = "https://amilia-img-proxy.azurewebsites.net/api/GetAmilia"; 
         this.wp.url = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/";
         this.targetPath = targetPath; 
+        this.templatePath = templatePath; 
         this.catDefs = categories; 
         this.customFuncs = []; 
+        this.window = window.location.pathname; 
     }
 
     // Checks if script is eligible to run
-    checkRun(path) {
+    checkRun(path, window) {
         let check = [false, false]; 
-        const regex1 = /\{[^\}]*\?*\}/; 
-        const regex2 = /\/[^\/]+$/; 
-        
-        const window = window.location.pathname; 
-        const targetChild = path.match(regex1); 
-        const currentChild = window.match(regex2); 
+    
+        const targetChild = path.match(/\{[^\}]*\?*\}*\//); 
+        const currentChild = window.match(/[^\/]*\/*$/); 
 
         const targetParent = path.replace(targetChild, ""); 
-        const currentParent = window.replace(currentChild, ""); 
+        const currentParent = (targetChild) ? window.replace(currentChild, "") : window; 
+
+        // console.table({targetParent, currentParent, targetChild, currentChild}); // Testing
 
         // Checks whether or not window path needs a child to run
         const optional = (targetChild && !targetChild.includes("?")) ? false : true; 
@@ -65,7 +66,7 @@ class A2WP {
             if (!getRes.ok) throw new Error(`Unable to fetch data from ${site}`);
     
             getRes = await getRes.json(); 
-            console.log(getRes); // Testing
+            // console.log(getRes); // Testing
             return getRes;
         } catch(error) {
             console.log(error); 
@@ -114,16 +115,10 @@ class A2WP {
     }
 
     async call() {
-        if (!this.checkRun(this.targetPath)) return;
-        console.log("A2WP is running");  
+        if (!this.checkRun(this.targetPath, this.window)) return;
+        console.trace("A2WP is running");
 
-        let template; 
-        if (this.templatePath) {
-            template = await this.fetchTemplate(this.templatePath)
-        } else {
-            // Get content from wordpress
-        }
-
+        const template = await this.fetchTemplate(this.templatePath)
         if (!template) return; 
 
         let parser = new DOMParser, 
@@ -133,16 +128,18 @@ class A2WP {
         if (typeof amObj == "undefined") return; // No Amilia data, quit script
         amObj = (amObj.Items) ? amObj.Items : [amObj]; 
 
+
         let wpObj = await this.fetchData({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args}); 
         if (wpObj == "undefined") wpObj = []; 
 
         // Run data through all custom funcs
-        // NOTE: Should always return 1 JSON object with everything inside
-        let results = {amObj: amObj, wpObj: wpObj, page: page, catDefs: this.catDefs}; 
-
-        this.customFuncs.forEach(customFunc => {
-            results = customFunc({input: results}); 
-        }); 
+        let results = {amObj: amObj, wpObj: wpObj, page: page, catDefs: this.catDefs};
+        
+        for (const customFunc of this.customFuncs) {
+            // console.log(`4. Running func: ${customFunc.name}`); // TESTING
+            results = await customFunc(results); 
+            // console.log("5. Results -->", results); 
+        }
 
         // Generate url from results
         const urlBuilder = {
@@ -153,8 +150,7 @@ class A2WP {
 
         const newAmObj = results.amObj; 
 
-        for (const amItem in newAmObj) {
-            // May need to put this in an async function? 
+        for (const amItem of newAmObj) {
             const imgUrl = amItem.PictureUrl; 
             const bodyData = {
                 "title": `API TEST: ${amItem.Name}`,
@@ -167,7 +163,7 @@ class A2WP {
             }; 
 
             // Post with resulting data 
-            this.postData({urlBuilder: urlBuilder, bodyData: bodyData, imgUrl: imgUrl}); 
+            await this.postData({urlBuilder: urlBuilder, bodyData: bodyData, imgUrl: imgUrl}); 
         }
     }
 }

@@ -23,6 +23,17 @@
 //  Returned information moves into next function (can I add another parameter to a function already made?)    
 
 
+if (wpObj[i].slug.includes(amItem.Id)) {
+                    check = true; 
+                    break; 
+                }
+
+                this.customFuncs.forEach(customFunc => {
+                    console.log(`4. Running func: ${customFunc.name}`); // TESTING
+                    results = customFunc(results); 
+                    console.log("5. Results -->", results); 
+                }); 
+
 
 
 

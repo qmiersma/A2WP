@@ -1,22 +1,25 @@
 // ---- Make your custom functions here ----
 // Checks if activity already exists in WP
-function checkExists({input}) {
+function checkExists(input) {
+    const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
+    // Testing ^^ 
     const wpObj = input.wpObj; 
-    const amObj = input.amObj; 
     let amObj2 = []; 
 
     amObj.forEach(amItem => {
-        let check = false; 
+        if (amItem.Status != "Hidden") {
+            let check = false; 
 
-        for (let i = 0; i < wpObj.length; i++) {
-            if (wpObj[i].slug.includes(amItem.Id)) {
-                check = true; 
-                break; 
+            for (let i = 0; i < wpObj.length; i++) {
+                if (amItem.Id == wpObj[i].slug.split("-")[1]) {
+                    check = true; 
+                    break; 
+                }
             }
-        }
 
-        // If activity does not yet exist in WP, adds to the "to make" list
-        if (!check) amObj2.push(amItem); 
+            // If activity does not yet exist in WP, adds to the "to make" list
+            if (!check) amObj2.push(amItem); 
+        }
     }); 
 
     input.amObj = amObj2; 
@@ -24,22 +27,35 @@ function checkExists({input}) {
 }
 
 // Gets id of WP activity to be updated
-function getId({input}) {
+function getId(input) {
     input.id = input.wpObj[0].id; 
     return input; 
 }
 
 // Reads HTML template and populates it with activity data
-function updateActDOM({input}) {
+async function updateActDOM(input) {
     const amObj = input.amObj; 
     const page = input.page; 
 
-    for (const amItem of amObj) {
+    for (const [index, amItem] of amObj.entries()) {
         let locations = ""; 
+
         // TODO: Grab location address with fetch using id
         // OR just grab all locations and parse from that?
         for (const location of amItem.Schedules[0].Locations) {
-            locations += `${location.Name}<br>`;
+            let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
+                method: "POST", 
+                body: JSON.stringify({"endpoint": `locations/${location.Id}`})
+            }); 
+
+            if (!getRes.ok) break; 
+            getRes = await getRes.json(); 
+
+            locations += `${getRes.Name}<br>`;
+            locations += `Phone: ${getRes.Telephone}<br>`; 
+            locations += "Address:<br>";
+            locations += `${getRes.Address.Address1}<br>`; 
+            locations += `${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}<br><br>`; 
         }
         const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
 
@@ -53,19 +69,19 @@ function updateActDOM({input}) {
         page.querySelector("#amilia-wp-activity-register-btn > a").href = amItem.SecretUrl; 
         page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
         page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
-        page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`; 
+        page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`;  
 
-        input.amObj.amItem.content = page.querySelector("body").innerHTML; 
+        input.amObj[index].content = page.querySelector("body").innerHTML; 
     }
  
     return input; 
 }
 
-function assignCats({input}) {
+function assignCats(input) {
     const amObj = input.amObj; 
     const catDefs = input.catDefs; 
 
-    amObj.forEach(amItem => {
+    amObj.forEach((amItem, index) => {
         const catIds = catDefs["Categories"][amItem.ProgramName]; 
         let ageGroups = []; 
 
@@ -81,8 +97,8 @@ function assignCats({input}) {
             }
         }
 
-        input.amObj.amItem.catIds = catIds; 
-        input.amObj.amItem.ageGroups = ageGroups; 
+        input.amObj[index].catIds = catIds; 
+        input.amObj[index].ageGroups = ageGroups; 
     });
     
     return input; 
@@ -113,9 +129,9 @@ let actCreator = new A2WP({
         endpoint: "activities", 
         args: "status=publish&per_page=100"
     }, 
-    targetPath: "things-to-do-2", 
+    targetPath: "/things-to-do-2/", 
     templatePath: `${apiData.path}/html/activity-template.html`, 
-    categories: actCategories
+    categories: actCategories 
 });
 actCreator.addFunc(checkExists);
 actCreator.addFunc(updateActDOM);  
@@ -133,7 +149,7 @@ let actUpdater = new A2WP({
         endpoint: "activities", 
         args: `slug=${slugName}`
     }, 
-    targetPath: "things-to-do/{path}", 
+    targetPath: "/things-to-do/{path}/", 
     templatePath: `${apiData.path}/html/activity-template.html`, 
     categories: actCategories
 }); 
