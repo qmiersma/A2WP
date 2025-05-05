@@ -1,52 +1,43 @@
 class A2WP {
-    constructor({amEndpoint, wpEndpoint, templatePath, customFunc, targetPath, args, timer = "none", catDefs = null}) {
-        this.url1 = "https://amilia-img-proxy.azurewebsites.net/api/GetAmilia"; 
-        this.url2 = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/"; 
-        this.amEndpoint = amEndpoint; 
-        this.wpEndpoint = wpEndpoint; 
-        this.templatePath = templatePath; 
-        this.customFunc = customFunc; 
+    constructor({amilia, wp, targetPath, templatePath = null, categories = null}) {
+        this.amilia = amilia; 
+        this.wp = wp; 
+        this.amilia.url = "https://amilia-img-proxy.azurewebsites.net/api/GetAmilia"; 
+        this.wp.url = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/";
         this.targetPath = targetPath; 
-        this.args = args; 
-        this.timer = timer; 
-        this.catDefs = catDefs; 
+        this.templatePath = templatePath; 
+        this.catDefs = categories; 
+        this.customFuncs = []; 
+        this.window = window.location.pathname; 
     }
 
-    checkRun(timer) {
-        let check = [false, false, false]; 
-        const currentPath = window.location.pathname.split("/"); 
+    // Checks if script is eligible to run
+    checkRun(path, window) {
+        let check = [false, false]; 
+    
+        const targetChild = path.match(/\{[^\}]*\?*\}*\//); 
+        const currentChild = window.match(/[^\/]*\/*$/); 
 
-        check[0] = (currentPath[1] == this.targetPath.parent) ? true : false; 
-        check[1] = ((currentPath[2] != "") == this.targetPath.child) ? true : false;
+        const targetParent = path.replace(targetChild, ""); 
+        const currentParent = (targetChild) ? window.replace(currentChild, "") : window; 
 
-        if (localStorage.lastChecked == null) {
-            localStorage.setItem("lastChecked", new Date().getTime()); 
-            check[2] = true; 
-        } else {
-            const currentDate = new Date().getTime(); 
+        // console.table({targetParent, currentParent, targetChild, currentChild}); // Testing
 
-            // console.log(localStorage.lastChecked); 
-            // console.log(currentDate); 
-            // console.log(((currentDate - localStorage.lastChecked) / 3600000)); 
+        // Checks whether or not window path needs a child to run
+        const optional = (targetChild && !targetChild.includes("?")) ? false : true; 
 
-            switch(timer) {
-                case "hour": 
-                    if (((currentDate - localStorage.lastChecked) / 3600000) >= 1) {
-                        check[2] = true; 
-                        localStorage.lastChecked = currentDate; 
-                    }
-                    break; 
-                case "day": 
-                    break; 
-                default: 
-                    check[2] = true; 
-            }
-        }
+        check[0] = (targetParent == currentParent); 
+        check[1] = (currentChild) ? true : false; 
 
-        check[2] = true; // Testing
-        return (check[0] && check[1] && check[2]); 
+        if (!optional) return (check[0] && check[1]); 
+
+        if (!check[0]) check[0] = (targetParent == window); 
+        check[1] = true; 
+
+        return (check[0] && check[1]); 
     }
 
+    // Grabs HTML template's contents
     async fetchTemplate(path) {
         try {
             const response = await fetch(path); 
@@ -59,14 +50,14 @@ class A2WP {
         }
     }
 
-    async fetchData({url, method, site, endpoint = null, arg = null}) {
+    async fetchData({url, method, site, endpoint = null, args = null}) {
         let info = {
             method: method, 
             headers: {
                 "Content-Type": "application/json"
             }
         }; 
-        if (arg) url = `${url}?${arg}`; 
+        if (args) url = `${url}?${args}`; 
         if (endpoint) info.body = JSON.stringify({"endpoint": endpoint}); 
 
         try {
@@ -75,14 +66,18 @@ class A2WP {
             if (!getRes.ok) throw new Error(`Unable to fetch data from ${site}`);
     
             getRes = await getRes.json(); 
-            console.log(getRes); // Testing
+            // console.log(getRes); // Testing
             return getRes;
         } catch(error) {
             console.log(error); 
         }
     }
 
-    async postData({url, endpoint, title = null, author = null, content = null, status = null, slug = null, actCats = null, ageGroups = null, imgUrl = null, id = ""}) {
+    async postData({urlBuilder, bodyData, imgUrl = null}) {
+        const url = urlBuilder.url; 
+        const endpoint = urlBuilder.endpoint; 
+        const id = (urlBuilder.id) ? urlBuilder.id : ""; 
+
         try {
             // Creates post
             let postRes = await fetch(`${url}${endpoint}/${id}`, {
@@ -91,15 +86,7 @@ class A2WP {
                     "Content-Type": "application/json", 
                     "X-WP-Nonce": apiData.nonce
                 }, 
-                body: JSON.stringify({
-                    title, 
-                    status, 
-                    slug, 
-                    content, 
-                    author, 
-                    "activity-categories": actCats, 
-                    "age-groups": ageGroups
-                })
+                body: JSON.stringify(bodyData)
             }); 
 
             if (!postRes.ok) throw new Error("Unable to create post"); 
@@ -107,7 +94,6 @@ class A2WP {
 
             // Creates featured media (if not already set)
             if (imgUrl && postRes.featured_media == 0) {
-                console.log("running"); 
                 let postRes2 = fetch("https://amilia-img-proxy.azurewebsites.net/api/GetImg", {
                     method: "POST",
                     body: JSON.stringify({
@@ -123,50 +109,61 @@ class A2WP {
         }
     }
 
-    updateActDOM({page, amItem}) {
-        let locations = ""; 
-        amItem.Schedules[0].Locations.forEach(location => {
-            locations += `${location.Name}<br>`; 
-        });
-        const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
-
-        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
-        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
-    
-        page.querySelector("#amilia-wp-activity-schedule-summary").innerHTML = amItem.ScheduleSummary; 
-        page.querySelector("#amilia-wp-activity-dates").innerHTML = `${startDate} to ${endDate}`; 
-        page.querySelector("#amilia-wp-activity-location").innerHTML = locations; 
-        page.querySelector("#amilia-wp-activity-price").innerHTML = price; 
-        page.querySelector("#amilia-wp-activity-register-btn > a").href = amItem.SecretUrl; 
-        page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
-        page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
-        page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`; 
-
-        return page; 
+    // Adds custom function to iterable array (customFuncs)
+    addFunc(func) {
+        this.customFuncs.push(func); 
     }
 
     async call() {
-        if (!this.checkRun(this.timer)) return; 
+        if (!this.checkRun(this.targetPath, this.window)) return;
+        console.trace("A2WP is running");
 
-        console.log(this.constructor.name, "is running"); 
-        let template = await this.fetchTemplate(this.templatePath); 
-
+        const template = await this.fetchTemplate(this.templatePath)
         if (!template) return; 
 
         let parser = new DOMParser, 
             page = parser.parseFromString(template, "text/html"); 
 
-        let amObj = await this.fetchData({url: this.url1, method: "POST", site: "Amilia", endpoint: this.amEndpoint}); 
-        if (typeof amObj == "undefined") return; // No Amilia data to send
-
+        let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: this.amilia.endpoint, args: this.amilia.args}); 
+        if (typeof amObj == "undefined") return; // No Amilia data, quit script
         amObj = (amObj.Items) ? amObj.Items : [amObj]; 
 
-        let wpObj = await this.fetchData({url: `${this.url2}${this.wpEndpoint}`, method: "GET", site: "Wordpress", arg: this.args.wp}); 
+
+        let wpObj = await this.fetchData({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args}); 
+        if (wpObj == "undefined") wpObj = []; 
+
+        // Run data through all custom funcs
+        let results = {amObj: amObj, wpObj: wpObj, page: page, catDefs: this.catDefs};
         
-        amObj.some(amItem => {
-            if (amItem.Status != "Hidden") {
-                return this.customFunc({page: page, wpObj: wpObj, amItem: amItem, postData: this.postData, updateActDOM: this.updateActDOM, url: this.url2, endpoint: this.wpEndpoint, catDefs: this.catDefs});
-            }
-        });
+        for (const customFunc of this.customFuncs) {
+            // console.log(`4. Running func: ${customFunc.name}`); // TESTING
+            results = await customFunc(results); 
+            // console.log("5. Results -->", results); 
+        }
+
+        // Generate url from results
+        const urlBuilder = {
+            url: this.wp.url, 
+            endpoint: this.wp.endpoint, 
+            id: results.id
+        }
+
+        const newAmObj = results.amObj; 
+
+        for (const amItem of newAmObj) {
+            const imgUrl = amItem.PictureUrl; 
+            const bodyData = {
+                "title": `API TEST: ${amItem.Name}`,
+                "author": 43,
+                "content": amItem.content, 
+                "status": "publish", 
+                "slug": `activity-${amItem.Id}`,
+                "activity-categories": amItem.catIds, 
+                "age-groups": amItem.ageGroups
+            }; 
+
+            // Post with resulting data 
+            await this.postData({urlBuilder: urlBuilder, bodyData: bodyData, imgUrl: imgUrl}); 
+        }
     }
 }

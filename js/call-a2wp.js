@@ -1,21 +1,88 @@
 // ---- Make your custom functions here ----
+// Checks if activity already exists in WP
+function checkExists(input) {
+    const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
+    // Testing ^^ 
+    const wpObj = input.wpObj; 
+    let amObj2 = []; 
 
-// Modifies activity-template.html and pushes the new activity to WP
-function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, catDefs}) {
-    let check = true; 
-    if (wpObj == "undefined") wpObj = []; 
+    amObj.forEach(amItem => {
+        if (amItem.Status != "Hidden") {
+            let check = false; 
 
-    for (let i = 0; i < wpObj.length; i++) {
-        if (wpObj[i].slug.includes(amItem.Id)) {
-            check = false; 
-            break; 
+            for (let i = 0; i < wpObj.length; i++) {
+                if (amItem.Id == wpObj[i].slug.split("-")[1]) {
+                    check = true; 
+                    break; 
+                }
+            }
+
+            // If activity does not yet exist in WP, adds to the "to make" list
+            if (!check) amObj2.push(amItem); 
         }
+    }); 
+
+    input.amObj = amObj2; 
+    return input; 
+}
+
+// Gets id of WP activity to be updated
+function getId(input) {
+    input.id = input.wpObj[0].id; 
+    return input; 
+}
+
+// Reads HTML template and populates it with activity data
+async function updateActDOM(input) {
+    const amObj = input.amObj; 
+    const page = input.page; 
+
+    for (const [index, amItem] of amObj.entries()) {
+        let locations = ""; 
+
+        // TODO: Grab location address with fetch using id
+        // OR just grab all locations and parse from that?
+        for (const location of amItem.Schedules[0].Locations) {
+            let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
+                method: "POST", 
+                body: JSON.stringify({"endpoint": `locations/${location.Id}`})
+            }); 
+
+            if (!getRes.ok) break; 
+            getRes = await getRes.json(); 
+
+            locations += `${getRes.Name}<br>`;
+            locations += `Phone: ${getRes.Telephone}<br>`; 
+            locations += "Address:<br>";
+            locations += `${getRes.Address.Address1}<br>`; 
+            locations += `${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}<br><br>`; 
+        }
+        const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
+
+        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
+        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
+
+        page.querySelector("#amilia-wp-activity-schedule-summary").innerHTML = amItem.ScheduleSummary; 
+        page.querySelector("#amilia-wp-activity-dates").innerHTML = `${startDate} to ${endDate}`; 
+        page.querySelector("#amilia-wp-activity-location").innerHTML = locations; 
+        page.querySelector("#amilia-wp-activity-price").innerHTML = price; 
+        page.querySelector("#amilia-wp-activity-register-btn > a").href = amItem.SecretUrl; 
+        page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
+        page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
+        page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`;  
+
+        input.amObj[index].content = page.querySelector("body").innerHTML; 
     }
+ 
+    return input; 
+}
 
-    if (check) {
-        const newPage = updateActDOM({page: page, amItem: amItem}); 
+function assignCats(input) {
+    const amObj = input.amObj; 
+    const catDefs = input.catDefs; 
 
-        let actCats = catDefs["Categories"][amItem.ProgramName]; 
+    amObj.forEach((amItem, index) => {
+        const catIds = catDefs["Categories"][amItem.ProgramName]; 
         let ageGroups = []; 
 
         if (amItem.Age) {
@@ -29,43 +96,16 @@ function createAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, 
                 } 
             }
         }
-        
-        // *** API TEST will be removed from title field once out of testing stage
-        postData({url: url, endpoint: endpoint, title: `API TEST: ${amItem.Name}`, author: 43, content: newPage.querySelector("body").innerHTML, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups, imgUrl: amItem.PictureUrl}); 
-    }
 
-    return false; 
+        input.amObj[index].catIds = catIds; 
+        input.amObj[index].ageGroups = ageGroups; 
+    });
+    
+    return input; 
 }
 
-function updateAct({page, wpObj, amItem, postData, updateActDOM, url, endpoint, catDefs}) {
-    let id = wpObj[0].id; 
-
-    const newPage = updateActDOM({page: page, amItem: amItem}); 
-
-    let actCats = catDefs["Categories"][amItem.ProgramName]; 
-    let ageGroups = []; 
-
-    if (amItem.Age) {
-        let max = amItem.Age.Max; 
-        let min = amItem.Age.Min; 
-
-        for (let i = 0; (min <= max) && (i < catDefs["Ages"]["Max"].length); i++) {
-            if (min <= catDefs["Ages"]["Max"][i]) {
-                ageGroups.push(catDefs["Ages"]["Id"][i]); 
-                min = catDefs["Ages"]["Max"][i];
-            } 
-        }
-    }
-
-    postData({url: url, endpoint: endpoint, title: `API TEST: ${amItem.Name}`, author: 43, content: newPage.querySelector("body").innerHTML, status: "publish", slug: `activity-${amItem.Id}`, actCats: actCats, ageGroups: ageGroups, imgUrl: amItem.PictureUrl, id: id}); 
-
-    return true; 
-}
-
-// ---- Call your objects here ----
-
-// Links VPA programs to 1 or more WP post categories
-const actCats = {
+// ---- Create your categories here ----
+const actCategories = {
     "Categories" : {
         "Arts, Culture, and Education 2025": 67, 
         "Aquatics 2025": [83, 69],
@@ -80,41 +120,40 @@ const actCats = {
     }
 }
 
+// ---- Call your objects here ----
 let actCreator = new A2WP({
-    amEndpoint: "activities",
-    wpEndpoint: "activities", 
-    templatePath: `${apiData.path}/html/activity-template.html`, 
-    customFunc: createAct, 
-    targetPath: {
-        "parent": "things-to-do-2", 
-        "child": false
+    amilia: {
+        endpoint: "activities"
     }, 
-    args: {
-        "amilia": null, 
-        "wp": "status=publish&per_page=100"
-    },
-    timer: "hour", 
-    catDefs: actCats
+    wp: {
+        endpoint: "activities", 
+        args: "status=publish&per_page=100"
+    }, 
+    targetPath: "/things-to-do-2/", 
+    templatePath: `${apiData.path}/html/activity-template.html`, 
+    categories: actCategories 
 });
+actCreator.addFunc(checkExists);
+actCreator.addFunc(updateActDOM);  
+actCreator.addFunc(assignCats);
 actCreator.call(); 
 
 const slugName = window.location.pathname.split("/")[2]; 
 const amiliaId = (slugName.split("-")[1]) ? slugName.split("-")[1] : null; 
 
 let actUpdater = new A2WP({
-    amEndpoint: `activities/${amiliaId}`, 
-    wpEndpoint: "activities", 
-    templatePath: `${apiData.path}/html/activity-template.html`, 
-    customFunc: updateAct, 
-    targetPath: {
-        "parent": "things-to-do", 
-        "child": true
+    amilia: {
+        endpoint: `activities/${amiliaId}`
     }, 
-    args: {
-        "amilia": null, 
-        "wp": `slug=${slugName}`
-    },
-    timer: "none", 
-    catDefs: actCats
-});  
+    wp: {
+        endpoint: "activities", 
+        args: `slug=${slugName}`
+    }, 
+    targetPath: "/things-to-do/{path}/", 
+    templatePath: `${apiData.path}/html/activity-template.html`, 
+    categories: actCategories
+}); 
+actUpdater.addFunc(getId); 
+actUpdater.addFunc(updateActDOM); 
+actUpdater.addFunc(assignCats); 
 actUpdater.call(); 

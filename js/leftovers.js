@@ -1,29 +1,15 @@
 
-// checkRun remove timer, work something else out
-// Build your url with JSON 
-// Change querySelector body innner html so this happens in class, not object
-// More queries I can add? 
-
+// EDGE CASES 
+// - What if amObj returns nothing once checked (no new activities)
 
 // REBUILD
 // NOTES: 
 // You will never push to amilia, so that's only a POST endpoint
 // wp endpoint is also mainly for POST, and when using GET it's getting items 
 // from where you'd be posting
+// MAYBE in the future call() returns data and then user can call post() to push data
+// ^^ Makes a2wp more flexible
 
-let actCreator = new A2WP({
-    amilia: {
-        "endpoint": "activities", 
-        "args": "per_page=100" // Optional, if null then ""
-    }, 
-    wp: {
-        "endpoint": "activities", 
-        "args": "status=publish" // Optional
-    }, 
-    targetPath: "things-to-do-2/{path?}", 
-    categories: {} // Optional
-});
-actCreator.call(); 
 
 // call()
 // checkRun
@@ -36,14 +22,17 @@ actCreator.call();
 //  Pushes function name to global class array, then executed in call
 //  Returned information moves into next function (can I add another parameter to a function already made?)    
 
-// Every customFunc passes additional parameters: fetchData, amObj, wpObj, results
 
-// if create, create checkExists / if update, create getId
-// create updateActDOM
-// create assignCats
-// create getLocation
-// call
+if (wpObj[i].slug.includes(amItem.Id)) {
+                    check = true; 
+                    break; 
+                }
 
+                this.customFuncs.forEach(customFunc => {
+                    console.log(`4. Running func: ${customFunc.name}`); // TESTING
+                    results = customFunc(results); 
+                    console.log("5. Results -->", results); 
+                }); 
 
 
 
