@@ -21,7 +21,7 @@ class A2WP {
         const targetParent = path.replace(targetChild, ""); 
         const currentParent = (targetChild) ? window.replace(currentChild, "") : window; 
 
-        // console.table({targetParent, currentParent, targetChild, currentChild}); // Testing
+        // console.table({targetParent, currentParent, targetChild, currentChild});
 
         // Checks whether or not window path needs a child to run
         const optional = (targetChild && !targetChild.includes("?")) ? false : true; 
@@ -35,19 +35,6 @@ class A2WP {
         check[1] = true; 
 
         return (check[0] && check[1]); 
-    }
-
-    // Grabs HTML template's contents
-    async fetchTemplate(path) {
-        try {
-            const response = await fetch(path); 
-    
-            if (!response.ok) throw new Error("Could not find HTML template file"); 
-    
-            return await response.text(); 
-        } catch(error) {
-            console.log(error); 
-        }
     }
 
     async fetchData({url, method, site, endpoint = null, args = null}) {
@@ -118,12 +105,6 @@ class A2WP {
         if (!this.checkRun(this.targetPath, this.window)) return;
         console.trace("A2WP is running");
 
-        const template = await this.fetchTemplate(this.templatePath)
-        if (!template) return; 
-
-        let parser = new DOMParser, 
-            page = parser.parseFromString(template, "text/html"); 
-
         let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: this.amilia.endpoint, args: this.amilia.args}); 
         if (typeof amObj == "undefined") return; // No Amilia data, quit script
         amObj = (amObj.Items) ? amObj.Items : [amObj]; 
@@ -133,7 +114,7 @@ class A2WP {
         if (wpObj == "undefined") wpObj = []; 
 
         // Run data through all custom funcs
-        let results = {amObj: amObj, wpObj: wpObj, page: page, catDefs: this.catDefs};
+        let results = {amObj: amObj, wpObj: wpObj, catDefs: this.catDefs};
         
         for (const customFunc of this.customFuncs) {
             // console.log(`4. Running func: ${customFunc.name}`); // TESTING
@@ -156,6 +137,7 @@ class A2WP {
                 "title": `API TEST: ${amItem.Name}`,
                 "author": 43,
                 "content": amItem.content, 
+                "acf": amItem.acf,
                 "status": "publish", 
                 "slug": `activity-${amItem.Id}`,
                 "activity-categories": amItem.catIds, 

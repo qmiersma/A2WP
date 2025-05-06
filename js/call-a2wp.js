@@ -1,8 +1,8 @@
 // ---- Make your custom functions here ----
 // Checks if activity already exists in WP
 function checkExists(input) {
-    const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
-    // Testing ^^ 
+    // const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
+    const amObj = input.amObj; 
     const wpObj = input.wpObj; 
     let amObj2 = []; 
 
@@ -32,48 +32,64 @@ function getId(input) {
     return input; 
 }
 
-// Reads HTML template and populates it with activity data
-async function updateActDOM(input) {
+// Builds a JSON object for ACF data and adds to each new amItem
+async function buildActACF(input) {
     const amObj = input.amObj; 
-    const page = input.page; 
 
     for (const [index, amItem] of amObj.entries()) {
-        let locations = ""; 
+        // Builds datestimes
+        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
+        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
 
-        // TODO: Grab location address with fetch using id
-        // OR just grab all locations and parse from that?
-        for (const location of amItem.Schedules[0].Locations) {
+        const datestimes = `${startDate} to ${endDate}\n${amItem.ScheduleSummary}`; 
+        
+        // Builds location 
+        let location = ""; 
+        for (const loc of amItem.Schedules[0].Locations) {
             let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
                 method: "POST", 
-                body: JSON.stringify({"endpoint": `locations/${location.Id}`})
+                body: JSON.stringify({"endpoint": `locations/${loc.Id}`})
             }); 
 
             if (!getRes.ok) break; 
             getRes = await getRes.json(); 
 
-            locations += `${getRes.Name}<br>`;
-            locations += `Phone: ${getRes.Telephone}<br>`; 
-            locations += "Address:<br>";
-            locations += `${getRes.Address.Address1}<br>`; 
-            locations += `${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}<br><br>`; 
+            location += `<a target="_blank" href="https://www.google.com/maps/dir//'${getRes.Address.Latitude},${getRes.Address.Longitude}'/@${getRes.Address.Latitude},${getRes.Address.Longitude}">${getRes.Name}</a>\n${getRes.Address.Address1}\n${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}\n\n`; 
         }
-        const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
 
-        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
-        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
+        // Builds fees
+        const dropIn = (amItem.HasDropInEnabled) ? `Drop-In Price: $${amItem.DropInPrice}` : ""; 
+        const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free";
 
-        page.querySelector("#amilia-wp-activity-schedule-summary").innerHTML = amItem.ScheduleSummary; 
-        page.querySelector("#amilia-wp-activity-dates").innerHTML = `${startDate} to ${endDate}`; 
-        page.querySelector("#amilia-wp-activity-location").innerHTML = locations; 
-        page.querySelector("#amilia-wp-activity-price").innerHTML = price; 
-        page.querySelector("#amilia-wp-activity-register-btn > a").href = amItem.SecretUrl; 
-        page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
-        page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
-        page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`;  
+        const fees = `Price: ${price}\n${dropIn}`; 
 
-        input.amObj[index].content = page.querySelector("body").innerHTML; 
+        // Builds contact_info and registration button
+        const contact_info = amItem.ResponsibleName; 
+        const registration_button_text = "Register Here"; 
+        const registration_link = amItem.Url; 
+
+        // Builds more
+        const prereq = (amItem.Prerequisite) ? amItem.Prerequisite : ""; 
+        const note = (amItem.Note) ? amItem.Note : "";
+        const more = `${prereq}\n\n${note}`; 
+
+        // Builds main content
+        const content = `<strong>Spots Reserved:</strong> ${amItem.SpotsReserved}/${amItem.MaxAttendance}\n<strong>Ages:</strong> ${amItem.AgeSummary}\n\n${amItem.Description}`; 
+
+        let acf = {
+            datestimes, 
+            location, 
+            fees, 
+            contact_info, 
+            registration_button_text, 
+            registration_link, 
+            more
+        }
+
+        input.amObj[index].content = content; 
+        input.amObj[index].acf= acf; 
     }
- 
+
     return input; 
 }
 
@@ -134,7 +150,7 @@ let actCreator = new A2WP({
     categories: actCategories 
 });
 actCreator.addFunc(checkExists);
-actCreator.addFunc(updateActDOM);  
+actCreator.addFunc(buildActACF);  
 actCreator.addFunc(assignCats);
 actCreator.call(); 
 
@@ -154,6 +170,6 @@ let actUpdater = new A2WP({
     categories: actCategories
 }); 
 actUpdater.addFunc(getId); 
-actUpdater.addFunc(updateActDOM); 
+actUpdater.addFunc(buildActACF); 
 actUpdater.addFunc(assignCats); 
 actUpdater.call(); 

@@ -35,6 +35,70 @@ if (wpObj[i].slug.includes(amItem.Id)) {
                 }); 
 
 
+                const template = await this.fetchTemplate(this.templatePath)
+        if (!template) return; 
+
+        let parser = new DOMParser, 
+            page = parser.parseFromString(template, "text/html"); 
+
+                 // Grabs HTML template's contents
+    async fetchTemplate(path) {
+        try {
+            const response = await fetch(path); 
+    
+            if (!response.ok) throw new Error("Could not find HTML template file"); 
+    
+            return await response.text(); 
+        } catch(error) {
+            console.log(error); 
+        }
+    }
+
+
+// Reads HTML template and populates it with activity data
+async function updateActDOM(input) {
+    const amObj = input.amObj; 
+    const page = input.page; 
+
+    for (const [index, amItem] of amObj.entries()) {
+        let locations = ""; 
+
+        for (const location of amItem.Schedules[0].Locations) {
+            let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
+                method: "POST", 
+                body: JSON.stringify({"endpoint": `locations/${location.Id}`})
+            }); 
+
+            if (!getRes.ok) break; 
+            getRes = await getRes.json(); 
+
+            page.querySelector("#amilia-wp-activity-location-name").innerHTML = getRes.Name; 
+            page.querySelector("#amilia-wp-activity-location-address1").innerHTML = getRes.Address.Address1; 
+            page.querySelector("#amilia-wp-activity-location-address2").innerHTML = `${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}<br><br>`; 
+
+            locations += page.querySelector("#amilia-wp-activity-location").innerHTML; 
+        }
+        const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free"; 
+
+        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
+        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
+
+        page.querySelector("#amilia-wp-activity-schedule-summary").innerHTML = amItem.ScheduleSummary; 
+        page.querySelector("#amilia-wp-activity-dates").innerHTML = `${startDate} to ${endDate}`; 
+        page.querySelector("#amilia-wp-activity-location").innerHTML = locations; 
+        page.querySelector("#amilia-wp-activity-price").innerHTML = price; 
+        page.querySelector("#amilia-wp-activity-register-btn > a").href = amItem.SecretUrl; 
+        page.querySelector("#amilia-wp-activity-responsible-name").innerHTML = amItem.ResponsibleName; 
+        page.querySelector("#amilia-wp-activity-note").innerHTML = amItem.Note; 
+        page.querySelector("#amilia-wp-activity-descript").innerHTML = `<p>${amItem.Description}</p>`;  
+
+        input.amObj[index].page = page.querySelector("body").innerHTML; 
+    }
+ 
+    return input; 
+}
+
+
 
 
 
