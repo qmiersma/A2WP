@@ -1,14 +1,14 @@
 class A2WP {
-    constructor({amilia, wp, targetPath, templatePath = null, categories = null}) {
+    constructor({amilia, wp, targetPath, categories = null, msg = null}) {
         this.amilia = amilia; 
         this.wp = wp; 
         this.amilia.url = "https://amilia-img-proxy.azurewebsites.net/api/GetAmilia"; 
         this.wp.url = "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/";
         this.targetPath = targetPath; 
-        this.templatePath = templatePath; 
         this.catDefs = categories; 
         this.customFuncs = []; 
         this.window = window.location.pathname; 
+        this.msg = msg; 
     }
 
     // Checks if script is eligible to run
@@ -60,7 +60,7 @@ class A2WP {
         }
     }
 
-    async postData({urlBuilder, bodyData, imgUrl = null}) {
+    async postData({urlBuilder, bodyData, imgUrl = null, msg = null}) {
         const url = urlBuilder.url; 
         const endpoint = urlBuilder.endpoint; 
         const id = (urlBuilder.id) ? urlBuilder.id : ""; 
@@ -78,6 +78,7 @@ class A2WP {
 
             if (!postRes.ok) throw new Error("Unable to create post"); 
             postRes = await postRes.json(); 
+            // console.log(postRes); // Testing
 
             // Creates featured media (if not already set)
             if (imgUrl && postRes.featured_media == 0) {
@@ -90,7 +91,7 @@ class A2WP {
                 });  
             }
 
-            console.log(`Activity ${postRes.id} created/updated`);
+            console.log(`${postRes.id}: ${this.msg}`);
         } catch(error) {
             console.log(error); 
         }
@@ -105,21 +106,26 @@ class A2WP {
         if (!this.checkRun(this.targetPath, this.window)) return;
         console.trace("A2WP is running");
 
+        let wpObj = await this.fetchData({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args}); 
+        if (wpObj == "undefined") wpObj = []; 
+
+        // Adds Amilia id to endpoint if updating only 1 post
+        const placeholder = this.amilia.endpoint.match(/\{[^\}]*\?*\}/); 
+        if (placeholder && wpObj.length != 0) {
+            if (wpObj[0].meta.amilia_id == null) return; 
+
+            this.amilia.endpoint = this.amilia.endpoint.replace(placeholder, wpObj[0].meta.amilia_id); 
+        }
+
         let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: this.amilia.endpoint, args: this.amilia.args}); 
         if (typeof amObj == "undefined") return; // No Amilia data, quit script
         amObj = (amObj.Items) ? amObj.Items : [amObj]; 
-
-
-        let wpObj = await this.fetchData({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args}); 
-        if (wpObj == "undefined") wpObj = []; 
 
         // Run data through all custom funcs
         let results = {amObj: amObj, wpObj: wpObj, catDefs: this.catDefs};
         
         for (const customFunc of this.customFuncs) {
-            // console.log(`4. Running func: ${customFunc.name}`); // TESTING
             results = await customFunc(results); 
-            // console.log("5. Results -->", results); 
         }
 
         // Generate url from results
@@ -133,19 +139,10 @@ class A2WP {
 
         for (const amItem of newAmObj) {
             const imgUrl = amItem.PictureUrl; 
-            const bodyData = {
-                "title": `API TEST: ${amItem.Name}`,
-                "author": 43,
-                "content": amItem.content, 
-                "acf": amItem.acf,
-                "status": "publish", 
-                "slug": `activity-${amItem.Id}`,
-                "activity-categories": amItem.catIds, 
-                "age-groups": amItem.ageGroups
-            }; 
+            const bodyData = amItem.bodyData; 
 
             // Post with resulting data 
-            await this.postData({urlBuilder: urlBuilder, bodyData: bodyData, imgUrl: imgUrl}); 
+            await this.postData({urlBuilder: urlBuilder, bodyData: bodyData, imgUrl: imgUrl, msg: this.msg}); 
         }
     }
 }

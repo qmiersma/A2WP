@@ -84,6 +84,13 @@ function amilia_to_wp() {
     )); 
 }
 add_action('wp_enqueue_scripts', 'amilia_to_wp'); 
+add_action('rest_api_init', function() {
+	register_meta(
+		'post', 
+		'amilia_id', 
+		['type' => 'string', 'single' => true, 'show_in_rest' => true]
+	);
+});
 
 /* -------- OVERRIDDEN SCRIPTS --------*/
 function pathfinder_posted_on() {
@@ -162,7 +169,7 @@ function custom_post_type() {
 	$args = array(
 		'label'               => 'Activity',
 		'labels'              => $labels,
-		'supports'            => array( 'title', 'editor', 'excerpt', 'author', 'thumbnail', 'revisions' ),
+		'supports'            => array( 'title', 'editor', 'excerpt', 'author', 'thumbnail', 'revisions', 'custom-fields' ),
 		'taxonomies'          => array( 'age-group', 'activity-category' ),
 		'hierarchical'        => true,
 		'public'              => true,

@@ -54,6 +54,22 @@ if (wpObj[i].slug.includes(amItem.Id)) {
         }
     }
 
+    templatePath: `${apiData.path}/html/activity-template.html`, 
+
+    // const bodyData = {
+            //     "title": `API TEST: ${amItem.Name}`,
+            //     "author": 43,
+            //     "content": amItem.content, 
+            //     "acf": amItem.acf,
+            //     "status": "publish", 
+            //     "slug": `activity-${amItem.Id}`,
+            //     "activity-categories": amItem.catIds, 
+            //     "age-groups": amItem.ageGroups, 
+            //     "meta": {"amilia_id": `${amItem.Id}`}
+            // }; 
+
+
+    // const amiliaId = (slugName.split("-")[1]) ? slugName.split("-")[1] : null; 
 
 // Reads HTML template and populates it with activity data
 async function updateActDOM(input) {

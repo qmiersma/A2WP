@@ -1,8 +1,8 @@
 // ---- Make your custom functions here ----
 // Checks if activity already exists in WP
 function checkExists(input) {
-    // const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
-    const amObj = input.amObj; 
+    const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
+    // const amObj = input.amObj; 
     const wpObj = input.wpObj; 
     let amObj2 = []; 
 
@@ -11,7 +11,7 @@ function checkExists(input) {
             let check = false; 
 
             for (let i = 0; i < wpObj.length; i++) {
-                if (amItem.Id == wpObj[i].slug.split("-")[1]) {
+                if (amItem.Id == wpObj[i].meta.amilia_id) {
                     check = true; 
                     break; 
                 }
@@ -74,7 +74,8 @@ async function buildActACF(input) {
         const more = `${prereq}\n\n${note}`; 
 
         // Builds main content
-        const content = `<strong>Spots Reserved:</strong> ${amItem.SpotsReserved}/${amItem.MaxAttendance}\n<strong>Ages:</strong> ${amItem.AgeSummary}\n\n${amItem.Description}`; 
+        const max = (amItem.MaxAttendance == 2147483647) ? "Unlimited" : amItem.MaxAttendance; 
+        const content = `<strong>Spots Reserved:</strong> ${amItem.SpotsReserved}/${max}\n<strong>Ages:</strong> ${amItem.AgeSummary}\n\n${amItem.Description}`; 
 
         let acf = {
             datestimes, 
@@ -86,8 +87,15 @@ async function buildActACF(input) {
             more
         }
 
-        input.amObj[index].content = content; 
-        input.amObj[index].acf= acf; 
+        // Sets body content for eventual post to WP
+        input.amObj[index].bodyData = {}; 
+        input.amObj[index].bodyData["title"] = `API TEST: ${amItem.Name}`; 
+        input.amObj[index].bodyData["author"] = 43; 
+        input.amObj[index].bodyData["status"] = "publish"; 
+        input.amObj[index].bodyData["slug"] = `activity-${amItem.Id}`; 
+        input.amObj[index].bodyData["meta"] = {"amilia_id": `${amItem.Id}`}; 
+        input.amObj[index].bodyData["content"] = content; 
+        input.amObj[index].bodyData["acf"] = acf; 
     }
 
     return input; 
@@ -113,8 +121,8 @@ function assignCats(input) {
             }
         }
 
-        input.amObj[index].catIds = catIds; 
-        input.amObj[index].ageGroups = ageGroups; 
+        input.amObj[index].bodyData["activity-categories"] = catIds; 
+        input.amObj[index].bodyData["age-groups"] = ageGroups; 
     });
     
     return input; 
@@ -146,28 +154,27 @@ let actCreator = new A2WP({
         args: "status=publish&per_page=100"
     }, 
     targetPath: "/things-to-do-2/", 
-    templatePath: `${apiData.path}/html/activity-template.html`, 
-    categories: actCategories 
+    categories: actCategories, 
+    msg: "Activity created" 
 });
 actCreator.addFunc(checkExists);
 actCreator.addFunc(buildActACF);  
 actCreator.addFunc(assignCats);
 actCreator.call(); 
 
-const slugName = window.location.pathname.split("/")[2]; 
-const amiliaId = (slugName.split("-")[1]) ? slugName.split("-")[1] : null; 
+const slugName = window.location.pathname.split("/")[2]; // Use regex instead
 
 let actUpdater = new A2WP({
     amilia: {
-        endpoint: `activities/${amiliaId}`
+        endpoint: "activities/{id}"
     }, 
     wp: {
         endpoint: "activities", 
         args: `slug=${slugName}`
     }, 
-    targetPath: "/things-to-do/{path}/", 
-    templatePath: `${apiData.path}/html/activity-template.html`, 
-    categories: actCategories
+    targetPath: "/things-to-do/{path}/",
+    categories: actCategories, 
+    msg: "Activity updated"
 }); 
 actUpdater.addFunc(getId); 
 actUpdater.addFunc(buildActACF); 
