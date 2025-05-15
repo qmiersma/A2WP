@@ -1,51 +1,80 @@
 // ---- Make your custom functions here ----
-// Checks if activity already exists in WP
+// Check what activities need to be added/deleted
 function checkExists(input) {
-    const amObj = [input.amObj[0], input.amObj[1], input.amObj[12], input.amObj[35]]; 
-    // const amObj = input.amObj; 
+    let amObj = input.amObj; 
     const wpObj = input.wpObj; 
-    let amObj2 = []; 
+    let objPost = []; 
+    let objDel = []; 
 
-    amObj.forEach(amItem => {
-        if (amItem.Status != "Hidden") {
-            let check = false; 
+    amObj = amObj.filter(item => item.Status != "Hidden"); 
 
-            for (let i = 0; i < wpObj.length; i++) {
-                if (amItem.Id == wpObj[i].meta.amilia_id) {
-                    check = true; 
-                    break; 
-                }
+    // Finds new activities to add
+    for (const amItem of amObj) {
+        let exists = false; 
+
+        for (const wpItem of wpObj) {
+            // console.log(`${amItem.Id} == ${wpItem.amilia_id}`); 
+            if (amItem.Id == wpItem.amilia_id) {
+                // console.log("Exists in WP -- won't make"); 
+                exists = true; 
+                break; 
             }
-
-            // If activity does not yet exist in WP, adds to the "to make" list
-            if (!check) amObj2.push(amItem); 
         }
-    }); 
 
-    input.amObj = amObj2; 
+        if (!exists) {
+            // console.log("THIS IS BEING ADDED", amItem); 
+            objPost.push(amItem);
+        }
+    }
+
+    // Finds old activities to remove
+    for (const wpItem of wpObj) {
+        let exists = false; 
+
+        for (const amItem of amObj) {
+            // console.log(`${amItem.Id} == ${wpItem.amilia_id}`); 
+            if (wpItem.amilia_id == amItem.Id) {
+                // console.log("Exists in Amilia -- won't delete"); 
+                exists = true; 
+                break; 
+            }
+        }
+
+        if (!exists) {
+            // console.log("THIS IS BEING DELETED", amItem); 
+            objDel.push(wpItem);
+        }
+    }
+
+    input.objPost = objPost; 
+    input.objDel = objDel; 
+
     return input; 
 }
 
 // Gets id of WP activity to be updated
 function getId(input) {
     input.id = input.wpObj[0].id; 
+    input.objPost = input.amObj; 
+    input.objDel = []; 
+
     return input; 
 }
 
 // Builds a JSON object for ACF data and adds to each new amItem
 async function buildActACF(input) {
-    const amObj = input.amObj; 
+    const objPost = input.objPost; 
 
-    for (const [index, amItem] of amObj.entries()) {
+    for (const [index, item] of objPost.entries()) {
         // Builds datestimes
-        const startDate = new Date(amItem.StartDate).toLocaleDateString(); 
-        const endDate = new Date(amItem.EndDate).toLocaleDateString(); 
+        const startDate = new Date(item.StartDate).toLocaleDateString(); 
+        const endDate = new Date(item.EndDate).toLocaleDateString(); 
 
-        const datestimes = `${startDate} to ${endDate}\n${amItem.ScheduleSummary}`; 
+        const datestimes = `${startDate} to ${endDate}\n${item.ScheduleSummary}`; 
         
         // Builds location 
         let location = ""; 
-        for (const loc of amItem.Schedules[0].Locations) {
+        for (const loc of item.Schedules[0].Locations) {
             let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
                 method: "POST", 
                 body: JSON.stringify({"endpoint": `locations/${loc.Id}`})
@@ -58,24 +87,24 @@ async function buildActACF(input) {
         }
 
         // Builds fees
-        const dropIn = (amItem.HasDropInEnabled) ? `Drop-In Price: $${amItem.DropInPrice}` : ""; 
-        const price = (amItem.Price != 0) ? `$${amItem.Price}` : "Free";
+        const dropIn = (item.HasDropInEnabled) ? `Drop-In Price: $${item.DropInPrice}` : ""; 
+        const price = (item.Price != 0) ? `$${item.Price}` : "Free";
 
         const fees = `Price: ${price}\n${dropIn}`; 
 
         // Builds contact_info and registration button
-        const contact_info = amItem.ResponsibleName; 
+        const contact_info = item.ResponsibleName; 
         const registration_button_text = "Register Here"; 
-        const registration_link = amItem.Url; 
+        const registration_link = item.Url; 
 
         // Builds more
-        const prereq = (amItem.Prerequisite) ? amItem.Prerequisite : ""; 
-        const note = (amItem.Note) ? amItem.Note : "";
+        const prereq = (item.Prerequisite) ? item.Prerequisite : ""; 
+        const note = (item.Note) ? item.Note : "";
         const more = `${prereq}\n\n${note}`; 
 
         // Builds main content
-        const max = (amItem.MaxAttendance == 2147483647) ? "Unlimited" : amItem.MaxAttendance; 
-        const content = `<strong>Spots Reserved:</strong> ${amItem.SpotsReserved}/${max}\n<strong>Ages:</strong> ${amItem.AgeSummary}\n\n${amItem.Description}`; 
+        const max = (item.MaxAttendance == 2147483647) ? "Unlimited" : item.MaxAttendance; 
+        const content = `<strong>Spots Reserved:</strong> ${item.SpotsReserved}/${max}\n<strong>Ages:</strong> ${item.AgeSummary}\n\n${item.Description}`; 
 
         let acf = {
             datestimes, 
@@ -88,30 +117,30 @@ async function buildActACF(input) {
         }
 
         // Sets body content for eventual post to WP
-        input.amObj[index].bodyData = {}; 
-        input.amObj[index].bodyData["title"] = `API TEST: ${amItem.Name}`; 
-        input.amObj[index].bodyData["author"] = 43; 
-        input.amObj[index].bodyData["status"] = "publish"; 
-        input.amObj[index].bodyData["slug"] = `activity-${amItem.Id}`; 
-        input.amObj[index].bodyData["meta"] = {"amilia_id": `${amItem.Id}`}; 
-        input.amObj[index].bodyData["content"] = content; 
-        input.amObj[index].bodyData["acf"] = acf; 
+        input.objPost[index].bodyData = {}; 
+        input.objPost[index].bodyData["title"] = item.Name; 
+        input.objPost[index].bodyData["author"] = 43; 
+        input.objPost[index].bodyData["status"] = "publish"; 
+        input.objPost[index].bodyData["slug"] = `activity-${item.Id}`; 
+        input.objPost[index].bodyData["content"] = content; 
+        input.objPost[index].bodyData["acf"] = acf; 
+        input.objPost[index].bodyData["amilia_id"] = `${item.Id}`; 
     }
 
     return input; 
 }
 
 function assignCats(input) {
-    const amObj = input.amObj; 
+    const objPost = input.objPost; 
     const catDefs = input.catDefs; 
 
-    amObj.forEach((amItem, index) => {
-        const catIds = catDefs["Categories"][amItem.ProgramName]; 
+    objPost.forEach((item, index) => {
+        const catIds = catDefs["Categories"][item.ProgramName]; 
         let ageGroups = []; 
 
-        if (amItem.Age) {
-            let max = amItem.Age.Max; 
-            let min = amItem.Age.Min; 
+        if (item.Age) {
+            let max = item.Age.Max; 
+            let min = item.Age.Min; 
 
             for (let i = 0; (min <= max) && (i < catDefs["Ages"]["Max"].length); i++) {
                 if (min <= catDefs["Ages"]["Max"][i]) {
@@ -121,10 +150,29 @@ function assignCats(input) {
             }
         }
 
-        input.amObj[index].bodyData["activity-categories"] = catIds; 
-        input.amObj[index].bodyData["age-groups"] = ageGroups; 
+        input.objPost[index].bodyData["activity-categories"] = catIds; 
+        input.objPost[index].bodyData["age-groups"] = ageGroups; 
     });
     
+    return input; 
+}
+
+// "I say we take off and nuke the entire site from orbit. It's the only way to be sure."
+// (Removes all Amilia activities from WP)
+function nukeEverything(input) {
+    const wpObj = input.wpObj; 
+    let objDel = []; 
+
+    for (const wpItem of wpObj) {
+        // if (wpItem.amilia_id != "") objDel.push(wpItem); 
+        if (wpItem.slug.match(/(?<=activity-)[^\/]+-+[^\D]*$/)) objDel.push(wpItem); 
+    }
+
+    input.objPost = []; 
+    input.objDel = objDel; 
+
+    console.log("objDel -->", objDel); 
+
     return input; 
 }
 
@@ -151,7 +199,7 @@ let actCreator = new A2WP({
     }, 
     wp: {
         endpoint: "activities", 
-        args: "status=publish&per_page=100"
+        args: "amilia_id&status=publish&per_page=100"
     }, 
     targetPath: "/things-to-do-2/", 
     categories: actCategories, 
@@ -160,9 +208,10 @@ let actCreator = new A2WP({
 actCreator.addFunc(checkExists);
 actCreator.addFunc(buildActACF);  
 actCreator.addFunc(assignCats);
+// actCreator.addFunc(nukeEverything); 
 actCreator.call(); 
 
-const slugName = window.location.pathname.split("/")[2]; // Use regex instead
+let slug = window.location.pathname.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); 
 
 let actUpdater = new A2WP({
     amilia: {
@@ -170,7 +219,7 @@ let actUpdater = new A2WP({
     }, 
     wp: {
         endpoint: "activities", 
-        args: `slug=${slugName}`
+        args: `amilia_id&slug=${slug}`
     }, 
     targetPath: "/things-to-do/{path}/",
     categories: actCategories, 

@@ -84,13 +84,36 @@ function amilia_to_wp() {
     )); 
 }
 add_action('wp_enqueue_scripts', 'amilia_to_wp'); 
-add_action('rest_api_init', function() {
-	register_meta(
-		'post', 
+
+function add_amilia_id_field() {
+    register_rest_field(
+		'activities', 
 		'amilia_id', 
-		['type' => 'string', 'single' => true, 'show_in_rest' => true]
-	);
-});
+		[
+			'get_callback'    => function($object) {
+				return get_post_meta($object['id'], 'amilia_id', true);
+			}, 
+            'update_callback' => function($value, $object) {
+                return update_post_meta($object->ID, 'amilia_id', $value); 
+            }, 
+            'schema'          => [
+                'type'      => 'string', 
+                'default'   => ''
+            ]
+		]
+	); 
+}
+add_action('rest_api_init', 'add_amilia_id_field');
+
+function query_by_amilia_id($args, $request) {
+	if (isset($request["amilia_id"])) {
+		$args["meta_key"] = "amilia_id"; 
+		$args["meta_value"] = $request["amilia_id"]; 
+	}
+
+	return $args; 
+}
+add_filter('rest_activities_query', 'query_by_amilia_id', 10, 2); 
 
 /* -------- OVERRIDDEN SCRIPTS --------*/
 function pathfinder_posted_on() {

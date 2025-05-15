@@ -60,6 +60,25 @@ class A2WP {
         }
     }
 
+    async delete(url) {
+        try {
+            let delRes = await fetch(url, {
+                method: "DELETE", 
+                headers: {
+                    "X-WP-Nonce": apiData.nonce
+                }
+            }); 
+
+            if (!delRes.ok) throw new Error("Failed to delete item"); 
+            delRes = await delRes.json(); 
+            console.log(delRes); 
+
+            console.log(`${delRes.id}: Deleted`);
+        } catch(error) {
+            console.log(error); 
+        }
+    }
+
     async postData({urlBuilder, bodyData, imgUrl = null, msg = null}) {
         const url = urlBuilder.url; 
         const endpoint = urlBuilder.endpoint; 
@@ -110,16 +129,19 @@ class A2WP {
         if (wpObj == "undefined") wpObj = []; 
 
         // Adds Amilia id to endpoint if updating only 1 post
-        const placeholder = this.amilia.endpoint.match(/\{[^\}]*\?*\}/); 
-        if (placeholder && wpObj.length != 0) {
-            if (wpObj[0].meta.amilia_id == null) return; 
+        const amEndpoint = await new Promise((resolve) => {
+            const endpoint = this.amilia.endpoint; 
+            const placeholder = endpoint.match(/\{[^\}]*\?*\}/); 
 
-            this.amilia.endpoint = this.amilia.endpoint.replace(placeholder, wpObj[0].meta.amilia_id); 
-        }
+            if (placeholder && wpObj.length == 1) resolve(endpoint.replace(placeholder, wpObj[0].amilia_id)); 
 
-        let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: this.amilia.endpoint, args: this.amilia.args}); 
+            resolve(endpoint); 
+        }); 
+
+        let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args}); 
         if (typeof amObj == "undefined") return; // No Amilia data, quit script
         amObj = (amObj.Items) ? amObj.Items : [amObj]; 
+        // amObj = [amObj[0], amObj[1], amObj[2], amObj[3], amObj[4]]; // Testing, 0 1 & 4 are hidden
 
         // Run data through all custom funcs
         let results = {amObj: amObj, wpObj: wpObj, catDefs: this.catDefs};
@@ -135,14 +157,19 @@ class A2WP {
             id: results.id
         }
 
-        const newAmObj = results.amObj; 
+        const objPost = results.objPost; 
+        const objDel = results.objDel; 
 
-        for (const amItem of newAmObj) {
-            const imgUrl = amItem.PictureUrl; 
-            const bodyData = amItem.bodyData; 
+        for (const item of objPost) {
+            const imgUrl = item.PictureUrl; 
+            const bodyData = item.bodyData; 
 
-            // Post with resulting data 
             await this.postData({urlBuilder: urlBuilder, bodyData: bodyData, imgUrl: imgUrl, msg: this.msg}); 
+        }
+
+        // Deleting WP items that no longer exist in Amilia
+        for (const item of objDel) {
+            await this.delete(`${this.wp.url}${this.wp.endpoint}/${item.id}`); 
         }
     }
 }
