@@ -131,14 +131,9 @@ class A2WP {
         let count = 2; 
         while (nextPage != "" || totalPages >= count) {
             let getRes = await fetchData({url: url, method: method, site: site, args: `page=${count}&${args}`});
-            console.log(getRes); 
             nextPage = getRes.nextPage; 
 
-            for (const item of getRes.data) {
-                console.log("Pushing item -->", item); 
-                obj.push(item); 
-            }
-
+            obj = obj.concat(getRes.data); 
             count++; 
         }
 
@@ -153,9 +148,13 @@ class A2WP {
         const totalPages = wpObj.totalPages; 
         wpObj = (wpObj.data) ? wpObj.data : []; 
 
+        console.log("old wpobj -->", wpObj); 
+
         if (totalPages > 1) {
             wpObj = await this.fetchMorePages({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args, obj: wpObj, fetchData: this.fetchData, totalPages: totalPages, nextPage: ""}); 
         }
+
+        console.log("new wpobj -->", wpObj); 
 
         // Adds Amilia id to endpoint if updating only 1 post
         const amEndpoint = await new Promise((resolve) => {
@@ -167,16 +166,31 @@ class A2WP {
             resolve(endpoint); 
         }); 
 
-        let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args}); 
-        if (!amObj) return; // No Amilia data, quit script
+        let amObj = []; 
+        let programs = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: "programs"}); 
+        if (!programs) return; // No Amilia data, quit script
+        programs = (programs.data.Items) ? programs.data.Items : [programs.data]; 
 
-        const nextPage = amObj.nextPage; 
-        amObj = (amObj.data && amObj.data.Items) ? amObj.data.Items : [amObj]; 
-        // amObj = [amObj[0], amObj[1], amObj[2], amObj[3], amObj[4]]; // Testing, 0 1 & 4 are hidden
+        console.log("programs -->", programs); 
 
-        if (nextPage != "") {
-            amObj = await this.fetchMorePages({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args, obj: amObj, fetchData: this.fetchData, totalPages: 0, nextPage: nextPage}); 
+        // NOTE: Can't update individual activities with /programs/id/activities/id, so if updating, script need to skip collecting programs
+
+        // Reads thru visible programs, fetches activities for each, and adds to amObj
+        for (const program of programs) {
+            if (program.IsVisible) {
+                let getRes = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: `programs/${program.Id}/${this.amilia.endpoint}`, args: this.amilia.args}); 
+                const nextPage = getRes.nextPage; 
+                getRes = (getRes.data && getRes.data.Items) ? getRes.data.Items : [getRes.data]; 
+
+                console.log("Activities of program -->", getRes); 
+                amObj = amObj.concat(getRes); 
+
+                if (nextPage != "") {
+                    amObj = await this.fetchMorePages({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args, obj: amObj, fetchData: this.fetchData, totalPages: 0, nextPage: nextPage}); 
+                }
+            }
         }
+        if (amObj.length < 1) return; 
 
         // Run data through all custom funcs
         let results = {amObj: amObj, wpObj: wpObj, catDefs: this.catDefs};
@@ -194,6 +208,9 @@ class A2WP {
 
         const objPost = results.objPost; 
         const objDel = results.objDel; 
+
+        console.log("objPost -->", objPost); 
+        console.log("objDel -->", objDel); 
 
         for (const item of objPost) {
             const imgUrl = item.PictureUrl; 
