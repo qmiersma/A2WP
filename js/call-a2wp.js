@@ -74,7 +74,8 @@ async function buildActACF(input) {
         
         // Builds location 
         let location = ""; 
-        for (const loc of item.Schedules[0].Locations) {
+        const schedules = (item.Schedules) ? item.Schedules[0].Locations : []; 
+        for (const loc of schedules) {
             let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
                 method: "POST", 
                 body: JSON.stringify({"endpoint": `locations/${loc.Id}`})

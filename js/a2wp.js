@@ -51,10 +51,17 @@ class A2WP {
             let getRes = await fetch(url, info); 
 
             if (!getRes.ok) throw new Error(`Unable to fetch data from ${site}`);
-    
-            getRes = await getRes.json(); 
-            // console.log(getRes); // Testing
-            return getRes;
+
+            // Gets pagination info
+            let getRes2 = {}; 
+            const totalPages = getRes.headers.get("X-WP-TotalPages"); 
+
+            getRes2.data = await getRes.json(); 
+            const nextPage = (getRes2.data.Paging) ? getRes2.data.Paging.Next : ""; 
+
+            getRes2.totalPages = totalPages; 
+            getRes2.nextPage = nextPage; 
+            return getRes2;
         } catch(error) {
             console.log(error); 
         }
@@ -97,7 +104,6 @@ class A2WP {
 
             if (!postRes.ok) throw new Error("Unable to create post"); 
             postRes = await postRes.json(); 
-            // console.log(postRes); // Testing
 
             // Creates featured media (if not already set)
             if (imgUrl && postRes.featured_media == 0) {
@@ -110,7 +116,7 @@ class A2WP {
                 });  
             }
 
-            console.log(`${postRes.id}: ${this.msg}`);
+            console.log(`${postRes.id}: ${msg}`);
         } catch(error) {
             console.log(error); 
         }
@@ -121,12 +127,35 @@ class A2WP {
         this.customFuncs.push(func); 
     }
 
+    async fetchMorePages({url, method, site, args, obj, fetchData, totalPages, nextPage}) {
+        let count = 2; 
+        while (nextPage != "" || totalPages >= count) {
+            let getRes = await fetchData({url: url, method: method, site: site, args: `page=${count}&${args}`});
+            console.log(getRes); 
+            nextPage = getRes.nextPage; 
+
+            for (const item of getRes.data) {
+                console.log("Pushing item -->", item); 
+                obj.push(item); 
+            }
+
+            count++; 
+        }
+
+        return obj; 
+    }
+
     async call() {
         if (!this.checkRun(this.targetPath, this.window)) return;
         console.trace("A2WP is running");
 
         let wpObj = await this.fetchData({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args}); 
-        if (wpObj == "undefined") wpObj = []; 
+        const totalPages = wpObj.totalPages; 
+        wpObj = (wpObj.data) ? wpObj.data : []; 
+
+        if (totalPages > 1) {
+            wpObj = await this.fetchMorePages({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args, obj: wpObj, fetchData: this.fetchData, totalPages: totalPages, nextPage: ""}); 
+        }
 
         // Adds Amilia id to endpoint if updating only 1 post
         const amEndpoint = await new Promise((resolve) => {
@@ -139,9 +168,15 @@ class A2WP {
         }); 
 
         let amObj = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args}); 
-        if (typeof amObj == "undefined") return; // No Amilia data, quit script
-        amObj = (amObj.Items) ? amObj.Items : [amObj]; 
+        if (!amObj) return; // No Amilia data, quit script
+
+        const nextPage = amObj.nextPage; 
+        amObj = (amObj.data && amObj.data.Items) ? amObj.data.Items : [amObj]; 
         // amObj = [amObj[0], amObj[1], amObj[2], amObj[3], amObj[4]]; // Testing, 0 1 & 4 are hidden
+
+        if (nextPage != "") {
+            amObj = await this.fetchMorePages({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args, obj: amObj, fetchData: this.fetchData, totalPages: 0, nextPage: nextPage}); 
+        }
 
         // Run data through all custom funcs
         let results = {amObj: amObj, wpObj: wpObj, catDefs: this.catDefs};
