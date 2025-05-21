@@ -148,48 +148,52 @@ class A2WP {
         const totalPages = wpObj.totalPages; 
         wpObj = (wpObj.data) ? wpObj.data : []; 
 
-        console.log("old wpobj -->", wpObj); 
-
         if (totalPages > 1) {
             wpObj = await this.fetchMorePages({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args, obj: wpObj, fetchData: this.fetchData, totalPages: totalPages, nextPage: ""}); 
         }
 
-        console.log("new wpobj -->", wpObj); 
+        const endpoint = this.amilia.endpoint;
+        const placeholder = endpoint.match(/\{[^\}]*\?*\}/);
 
         // Adds Amilia id to endpoint if updating only 1 post
-        const amEndpoint = await new Promise((resolve) => {
-            const endpoint = this.amilia.endpoint; 
-            const placeholder = endpoint.match(/\{[^\}]*\?*\}/); 
-
+        this.amilia.endpoint = await new Promise((resolve) => {  
             if (placeholder && wpObj.length == 1) resolve(endpoint.replace(placeholder, wpObj[0].amilia_id)); 
 
             resolve(endpoint); 
         }); 
 
         let amObj = []; 
-        let programs = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: "programs"}); 
-        if (!programs) return; // No Amilia data, quit script
-        programs = (programs.data.Items) ? programs.data.Items : [programs.data]; 
 
-        console.log("programs -->", programs); 
+        // If true, fetches data for 1 item; otherwise fetches for all
+        if (placeholder) {
+            let getRes = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: this.amilia.endpoint, args: this.amilia.args}); 
+            getRes = (getRes.data) ? [getRes.data] : []; 
+            
+            amObj = amObj.concat(getRes); 
+        } else {
+            let programs = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: "programs"}); 
+            if (!programs) return; // No Amilia data, quit script
+            programs = (programs.data.Items) ? programs.data.Items : [programs.data]; 
 
-        // NOTE: Can't update individual activities with /programs/id/activities/id, so if updating, script need to skip collecting programs
+            console.log("programs -->", programs); 
 
-        // Reads thru visible programs, fetches activities for each, and adds to amObj
-        for (const program of programs) {
-            if (program.IsVisible) {
-                let getRes = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: `programs/${program.Id}/${this.amilia.endpoint}`, args: this.amilia.args}); 
-                const nextPage = getRes.nextPage; 
-                getRes = (getRes.data && getRes.data.Items) ? getRes.data.Items : [getRes.data]; 
+            // Reads thru visible programs, fetches activities for each, and adds to amObj
+            for (const program of programs) {
+                if (program.IsVisible) {
+                    let getRes = await this.fetchData({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: `programs/${program.Id}/${this.amilia.endpoint}`, args: this.amilia.args}); 
+                    const nextPage = getRes.nextPage; 
+                    getRes = (getRes.data && getRes.data.Items) ? getRes.data.Items : [getRes.data]; 
 
-                console.log("Activities of program -->", getRes); 
-                amObj = amObj.concat(getRes); 
+                    console.log("Activities of program -->", getRes); 
+                    amObj = amObj.concat(getRes); 
 
-                if (nextPage != "") {
-                    amObj = await this.fetchMorePages({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: amEndpoint, args: this.amilia.args, obj: amObj, fetchData: this.fetchData, totalPages: 0, nextPage: nextPage}); 
+                    if (nextPage != "") {
+                        amObj = await this.fetchMorePages({url: this.amilia.url, method: "POST", site: "Amilia", endpoint: this.amilia.endpoint, args: this.amilia.args, obj: amObj, fetchData: this.fetchData, totalPages: 0, nextPage: nextPage}); 
+                    }
                 }
             }
         }
+
         if (amObj.length < 1) return; 
 
         // Run data through all custom funcs
