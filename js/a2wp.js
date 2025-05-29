@@ -175,7 +175,7 @@ class A2WP {
             if (!programs) return; // No Amilia data, quit script
             programs = (programs.data.Items) ? programs.data.Items : [programs.data]; 
 
-            console.log("programs -->", programs); 
+            console.log("Programs -->", programs); 
 
             // Reads thru visible programs, fetches activities for each, and adds to amObj
             for (const program of programs) {
@@ -184,7 +184,7 @@ class A2WP {
                     const nextPage = getRes.nextPage; 
                     getRes = (getRes.data && getRes.data.Items) ? getRes.data.Items : [getRes.data]; 
 
-                    console.log("Activities of program -->", getRes); 
+                    console.log(`Activities of program ${program.Id} -->`, getRes); 
                     amObj = amObj.concat(getRes); 
 
                     if (nextPage != "") {

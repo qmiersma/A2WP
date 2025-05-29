@@ -13,18 +13,13 @@ function checkExists(input) {
         let exists = false; 
 
         for (const wpItem of wpObj) {
-            // console.log(`${amItem.Id} == ${wpItem.amilia_id}`); 
             if (amItem.Id == wpItem.amilia_id) {
-                // console.log("Exists in WP -- won't make"); 
                 exists = true; 
                 break; 
             }
         }
 
-        if (!exists) {
-            // console.log("THIS IS BEING ADDED", amItem); 
-            objPost.push(amItem);
-        }
+        if (!exists) objPost.push(amItem);
     }
 
     // Finds old activities to remove
@@ -32,18 +27,13 @@ function checkExists(input) {
         let exists = false; 
 
         for (const amItem of amObj) {
-            // console.log(`${amItem.Id} == ${wpItem.amilia_id}`); 
             if (wpItem.amilia_id == amItem.Id) {
-                // console.log("Exists in Amilia -- won't delete"); 
                 exists = true; 
                 break; 
             }
         }
 
-        if (!exists) {
-            // console.log("THIS IS BEING DELETED", amItem); 
-            objDel.push(wpItem);
-        }
+        if (!exists) objDel.push(wpItem);
     }
 
     input.objPost = objPost; 
@@ -61,12 +51,12 @@ function getId(input) {
     return input; 
 }
 
-// Builds a JSON object for ACF data and adds to each new amItem
+// Builds a JSON object for activity ACF data 
 async function buildActACF(input) {
     const objPost = input.objPost; 
 
     for (const [index, item] of objPost.entries()) {
-        // Builds datestimes
+        // Builds datestimes // TODO: Move this
         const startDate = new Date(item.StartDate).toLocaleDateString(); 
         const endDate = new Date(item.EndDate).toLocaleDateString(); 
 
@@ -95,8 +85,15 @@ async function buildActACF(input) {
 
         // Builds contact_info and registration button
         const contact_info = item.ResponsibleName; 
-        const registration_button_text = "Register Here"; 
-        const registration_link = item.Url; 
+        let registration_button_text = "Register Here"; 
+        let registration_link = item.Url; 
+        let spotsMsg = "<strong>Spots are still available!</strong> Click \"Register Here\" to sign up."; 
+
+        if (item.SpotsRemaining != null && item.SpotsRemaining < 1) {
+            registration_button_text = "Spots Unavailable"; 
+            registration_link = ""; 
+            spotsMsg = "<strong>All spots are taken.</strong> We are no longer accepting registrations."; 
+        }
 
         // Builds more
         const prereq = (item.Prerequisite) ? item.Prerequisite : ""; 
@@ -104,8 +101,8 @@ async function buildActACF(input) {
         const more = `${prereq}\n\n${note}`; 
 
         // Builds main content
-        const max = (item.MaxAttendance == 2147483647) ? "Unlimited" : item.MaxAttendance; 
-        const content = `<strong>Spots Reserved:</strong> ${item.SpotsReserved}/${max}\n<strong>Ages:</strong> ${item.AgeSummary}\n\n${item.Description}`; 
+        const ages = (item.AgeSummary) ? `\n<strong>Ages:</strong> ${item.AgeSummary}` : ""; 
+        const content = `${spotsMsg}${ages}\n\n${item.Description}`; 
 
         let acf = {
             datestimes, 
@@ -131,12 +128,80 @@ async function buildActACF(input) {
     return input; 
 }
 
+// Builds a JSON object for event ACF data 
+function buildEventACF(input) {
+    const objPost = input.objPost; 
+
+    function formatDate(date) { // Formats to remove HMS and hyphens
+        return date.split("T")[0].replaceAll("-", ""); 
+    }
+
+    for (const [index, item] of objPost.entries()) {
+        let actAcf = input.objPost[index].bodyData["acf"]; 
+
+        let repeating_event = item.NumberOfOccurrences > 1; // Boolean value
+        let repeating_type = null; 
+        const start_date = formatDate(item.StartDate); 
+        const end_date = formatDate(item.EndDate); 
+        let start_time = ""; 
+        let end_time = ""; 
+        let recurring_event_days = []; 
+        let repeating_days = []; 
+
+        if (item.Schedules.length > 1) {
+            repeating_type = "random"; 
+
+            for (const schedule of item.Schedules) {
+                let timePeriod = schedule.TimePeriod; 
+
+                let day = {
+                    "event_date": formatDate(timePeriod.StartDate), 
+                    "event_start_time": timePeriod.StartTime, 
+                    "event_end_time": timePeriod.EndTime
+                }
+
+                recurring_event_days.push(day); 
+            }
+        } else if (item.Schedules.length == 1) {
+            let timePeriod = item.Schedules[0].TimePeriod; 
+            start_time = timePeriod.StartTime; 
+            end_time = timePeriod.EndTime; 
+
+            if (timePeriod.Days.length > 0) {
+                repeating_type = "fixed"; 
+
+                for (const day of timePeriod.Days) {
+                    repeating_days.push(day); 
+                }
+            } 
+        }
+
+        const acf = {
+            repeating_event, 
+            start_date, 
+            end_date, 
+            start_time, 
+            end_time, 
+            repeating_days
+        }; 
+        acf["recurring_event_non-consecutive_days"] = recurring_event_days; 
+        if (repeating_type) acf["repeating_type"] = repeating_type; 
+
+        input.objPost[index].bodyData["acf"] = {...actAcf, ...acf}; 
+    }
+
+    return input; 
+}
+
 function assignCats(input) {
     const objPost = input.objPost; 
     const catDefs = input.catDefs; 
 
     objPost.forEach((item, index) => {
-        const catIds = catDefs["Categories"][item.ProgramName]; 
+        // Always includes event category so event ACFs are available
+        const ids = (catDefs["Categories"][item.ProgramName]) ? catDefs["Categories"][item.ProgramName] : []; 
+        const catIds = [85, ...ids]; 
+
         let ageGroups = []; 
 
         if (item.Age) {
@@ -180,12 +245,12 @@ function nukeEverything(input) {
 // ---- Create your categories here ----
 const actCategories = {
     "Categories" : {
-        "Arts, Culture, and Education 2025": 67, 
+        "Arts, Culture, and Education 2025": [67], 
         "Aquatics 2025": [83, 69],
-        "Athletics 2025": 66, 
-        "Day Camps Summer 2025": 68, 
-        "Events 2025": 85, 
-        "Health and Wellness 2025": 69
+        "Athletics 2025": [66], 
+        "Day Camps Summer 2025": [68], 
+        // "Events 2025": [85], 
+        "Health and Wellness 2025": [69]
     }, 
     "Ages": {
         "Max": [5, 12, 19, 54, 55, 99], 
@@ -208,8 +273,8 @@ let actCreator = new A2WP({
 });
 actCreator.addFunc(checkExists);
 actCreator.addFunc(buildActACF);  
+actCreator.addFunc(buildEventACF); 
 actCreator.addFunc(assignCats);
-// actCreator.addFunc(nukeEverything); 
 actCreator.call(); 
 
 let slug = window.location.pathname.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); 
@@ -228,5 +293,6 @@ let actUpdater = new A2WP({
 }); 
 actUpdater.addFunc(getId); 
 actUpdater.addFunc(buildActACF); 
+actUpdater.addFunc(buildEventACF); 
 actUpdater.addFunc(assignCats); 
 actUpdater.call(); 

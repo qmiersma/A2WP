@@ -1,3 +1,14 @@
+WHEN INTEGRATING API (FINAL PRODUCT): 
+- Enable Application Passwords on the sbvpa and dreamcenter prod sites
+- Change env variables SBVPA_PASS and DREAMCENTER_PASS to the new app passwords
+
+MOVING FILES TO REMOTE REPO PLAN: 
+- Nonce will no longer be needed, use app passes for everything
+- functions.php needs to enqueue a remote script (different url)
+- Make new azure project because other one's name is funky
+- POST url can't be hardcoded, have env hold different values for different sites (app pass, post url)
+- call-a2wp will be separate file for each site (dreamcenter-a2wp, sbvpa-a2wp)
+- Make checkExists exist in class so it doesn't have to be repeated, just make sure it's first in line before other customFuncs
 
 EDGE CASES 
 - What if amObj returns nothing once checked (no new activities)
@@ -7,16 +18,10 @@ NOTES:
 You will never push to amilia, so that's only a POST endpoint
 wp endpoint is also mainly for POST, and when using GET it's getting items 
 from where you'd be posting
-MAYBE in the future call() returns data and then user can call post() to push data
-^^ Makes a2wp more flexible
+
+Using the application pass assumes the user is named appsadmin
 
 
-call()
-checkRun
-getTemplate if not null
-DOMparser for whatever's being returned, template or WP content
-fetch amilia and wp, send through customFuncs
-Generate what you send to postData (from what you receive from funcs)
 
 createFunc function? That acts kind of like enqueue scripts? 
  Pushes function name to global class array, then executed in call
