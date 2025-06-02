@@ -9,6 +9,7 @@ MOVING FILES TO REMOTE REPO PLAN:
 - POST url can't be hardcoded, have env hold different values for different sites (app pass, post url)
 - call-a2wp will be separate file for each site (dreamcenter-a2wp, sbvpa-a2wp)
 - Make checkExists exist in class so it doesn't have to be repeated, just make sure it's first in line before other customFuncs
+- slug window.location var needs to grab from origin because otherwise it'll get the proxy url
 
 EDGE CASES 
 - What if amObj returns nothing once checked (no new activities)

@@ -56,12 +56,6 @@ async function buildActACF(input) {
     const objPost = input.objPost; 
 
     for (const [index, item] of objPost.entries()) {
-        // Builds datestimes // TODO: Move this
-        const startDate = new Date(item.StartDate).toLocaleDateString(); 
-        const endDate = new Date(item.EndDate).toLocaleDateString(); 
-
-        const datestimes = `${startDate} to ${endDate}\n${item.ScheduleSummary}`; 
-        
         // Builds location 
         let location = ""; 
         const schedules = (item.Schedules) ? item.Schedules[0].Locations : []; 
@@ -80,7 +74,6 @@ async function buildActACF(input) {
         // Builds fees
         const dropIn = (item.HasDropInEnabled) ? `Drop-In Price: $${item.DropInPrice}` : ""; 
         const price = (item.Price != 0) ? `$${item.Price}` : "Free";
-
         const fees = `Price: ${price}\n${dropIn}`; 
 
         // Builds contact_info and registration button
@@ -105,7 +98,6 @@ async function buildActACF(input) {
         const content = `${spotsMsg}${ages}\n\n${item.Description}`; 
 
         let acf = {
-            datestimes, 
             location, 
             fees, 
             contact_info, 
@@ -136,6 +128,18 @@ function buildEventACF(input) {
         return date.split("T")[0].replaceAll("-", ""); 
     }
 
+    function formatTime(time) { // if > 12, -12 and add PM
+        let [hours, mins, secs] = time.split(":"); 
+        let meridiem = "AM"; 
+
+        if (hours > 12) {
+            hours = hours - 12; 
+            meridiem = "PM"; 
+        } 
+
+        return `${hours}:${mins} ${meridiem}`; 
+    }
+
     for (const [index, item] of objPost.entries()) {
         let actAcf = input.objPost[index].bodyData["acf"]; 
 
@@ -147,12 +151,21 @@ function buildEventACF(input) {
         let end_time = ""; 
         let recurring_event_days = []; 
         let repeating_days = []; 
+ 
+        const startDate = new Date(item.StartDate).toDateString(); 
+        const endDate = new Date(item.EndDate).toDateString(); 
+        let scheduleSummary = "<ul>"; 
 
         if (item.Schedules.length > 1) {
             repeating_type = "random"; 
 
             for (const schedule of item.Schedules) {
                 let timePeriod = schedule.TimePeriod; 
+                let event_date = new Date(timePeriod.StartDate).toDateString(); 
+                let start_time = formatTime(timePeriod.StartTime); 
+                let end_time = formatTime(timePeriod.EndTime); 
+
+                scheduleSummary += `<li>${event_date}, ${start_time} - ${end_time}</li>`; 
 
                 let day = {
                     "event_date": formatDate(timePeriod.StartDate), 
@@ -162,10 +175,13 @@ function buildEventACF(input) {
 
                 recurring_event_days.push(day); 
             }
+
+            scheduleSummary += "</ul>"; 
         } else if (item.Schedules.length == 1) {
             let timePeriod = item.Schedules[0].TimePeriod; 
             start_time = timePeriod.StartTime; 
             end_time = timePeriod.EndTime; 
+            scheduleSummary = item.ScheduleSummary; 
 
             if (timePeriod.Days.length > 0) {
                 repeating_type = "fixed"; 
@@ -176,13 +192,16 @@ function buildEventACF(input) {
             } 
         }
 
+        const datestimes = `${startDate} to ${endDate}\n${scheduleSummary}`; 
+        
         const acf = {
             repeating_event, 
             start_date, 
             end_date, 
             start_time, 
             end_time, 
-            repeating_days
+            repeating_days, 
+            datestimes
         }; 
         acf["recurring_event_non-consecutive_days"] = recurring_event_days; 
         if (repeating_type) acf["repeating_type"] = repeating_type; 
