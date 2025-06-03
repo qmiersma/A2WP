@@ -4,15 +4,22 @@ WHEN INTEGRATING API (FINAL PRODUCT):
 
 MOVING FILES TO REMOTE REPO PLAN: 
 - Nonce will no longer be needed, use app passes for everything
+^^^ ACTUALLY functions localizes any script so I may be able to keep the nonce
+^^^ ACTUALLY ACTUALLY I may not need to enqueue the script, so I WILL need to use app passes. But I may want to enqueue for updating, but then I'll have to have targetPath -- targetPath optional then. agh
+Have functions.php check the url for when to run script, enqueue function URL
 - functions.php needs to enqueue a remote script (different url)
 - Make new azure project because other one's name is funky
 - POST url can't be hardcoded, have env hold different values for different sites (app pass, post url)
 - call-a2wp will be separate file for each site (dreamcenter-a2wp, sbvpa-a2wp)
 - Make checkExists exist in class so it doesn't have to be repeated, just make sure it's first in line before other customFuncs
 - slug window.location var needs to grab from origin because otherwise it'll get the proxy url
+- Make repo in devops that you can do git operations on, like that Jotform project
 
 EDGE CASES 
-- What if amObj returns nothing once checked (no new activities)
+- Amilia returns nothing
+- WP returns nothing
+- Amilia/WP returns more than 1 page of results (>100)
+- Amilia doesn't have a thumbnail available
 
 REBUILD
 NOTES: 

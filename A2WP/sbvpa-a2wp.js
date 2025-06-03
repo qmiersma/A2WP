@@ -1,46 +1,4 @@
-// ---- Make your custom functions here ----
-// Check what activities need to be added/deleted
-function checkExists(input) {
-    let amObj = input.amObj; 
-    const wpObj = input.wpObj; 
-    let objPost = []; 
-    let objDel = []; 
-
-    amObj = amObj.filter(item => item.Status != "Hidden"); 
-
-    // Finds new activities to add
-    for (const amItem of amObj) {
-        let exists = false; 
-
-        for (const wpItem of wpObj) {
-            if (amItem.Id == wpItem.amilia_id) {
-                exists = true; 
-                break; 
-            }
-        }
-
-        if (!exists) objPost.push(amItem);
-    }
-
-    // Finds old activities to remove
-    for (const wpItem of wpObj) {
-        let exists = false; 
-
-        for (const amItem of amObj) {
-            if (wpItem.amilia_id == amItem.Id) {
-                exists = true; 
-                break; 
-            }
-        }
-
-        if (!exists) objDel.push(wpItem);
-    }
-
-    input.objPost = objPost; 
-    input.objDel = objDel; 
-
-    return input; 
-}
+const A2WP = require("../A2WP/a2wp.js").A2WP; 
 
 // Gets id of WP activity to be updated
 function getId(input) {
@@ -60,7 +18,7 @@ async function buildActACF(input) {
         let location = ""; 
         const schedules = (item.Schedules) ? item.Schedules[0].Locations : []; 
         for (const loc of schedules) {
-            let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
+            let getRes = await fetch("https://a2wp.azurewebsites.net/api/GetAmilia", {
                 method: "POST", 
                 body: JSON.stringify({"endpoint": `locations/${loc.Id}`})
             }); 
@@ -128,7 +86,7 @@ function buildEventACF(input) {
         return date.split("T")[0].replaceAll("-", ""); 
     }
 
-    function formatTime(time) { // if > 12, -12 and add PM
+    function formatTime(time) { // Formats HMS to be more user-friendly
         let [hours, mins, secs] = time.split(":"); 
         let meridiem = "AM"; 
 
@@ -242,26 +200,6 @@ function assignCats(input) {
     return input; 
 }
 
-// "I say we take off and nuke the entire site from orbit. It's the only way to be sure."
-// (Removes all Amilia activities from WP)
-function nukeEverything(input) {
-    const wpObj = input.wpObj; 
-    let objDel = []; 
-
-    for (const wpItem of wpObj) {
-        // if (wpItem.amilia_id != "") objDel.push(wpItem); 
-        if (wpItem.slug.match(/(?<=activity-)[^\/]+-+[^\D]*$/)) objDel.push(wpItem); 
-    }
-
-    input.objPost = []; 
-    input.objDel = objDel; 
-
-    console.log("objDel -->", objDel); 
-
-    return input; 
-}
-
-// ---- Create your categories here ----
 const actCategories = {
     "Categories" : {
         "Arts, Culture, and Education 2025": [67], 
@@ -277,41 +215,45 @@ const actCategories = {
     }
 }
 
-// ---- Call your objects here ----
-let actCreator = new A2WP({
+// Searches Amilia for all new activites that need to be pushed to WP
+let vpaCreator = new A2WP({
     amilia: {
         endpoint: "activities"
     }, 
     wp: {
+        url: "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/",
         endpoint: "activities", 
         args: "amilia_id&status=publish&per_page=100"
     }, 
-    targetPath: "/things-to-do-2/", 
     categories: actCategories, 
     msg: "Activity created" 
 });
-actCreator.addFunc(checkExists);
-actCreator.addFunc(buildActACF);  
-actCreator.addFunc(buildEventACF); 
-actCreator.addFunc(assignCats);
-actCreator.call(); 
+vpaCreator.addFunc(buildActACF);  
+vpaCreator.addFunc(buildEventACF); 
+vpaCreator.addFunc(assignCats);
 
-let slug = window.location.pathname.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); 
+//let slug = window.location.pathname.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); // CHANGE THIS, use origin header w regex
 
-let actUpdater = new A2WP({
+// Updates data for 1 specific activity
+let vpaUpdater = new A2WP({
     amilia: {
         endpoint: "activities/{id}"
     }, 
     wp: {
+        url: "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/",
         endpoint: "activities", 
-        args: `amilia_id&slug=${slug}`
+        //args: `amilia_id&slug=${slug}`
+        args: `amilia_id`
     }, 
-    targetPath: "/things-to-do/{path}/",
     categories: actCategories, 
     msg: "Activity updated"
 }); 
-actUpdater.addFunc(getId); 
-actUpdater.addFunc(buildActACF); 
-actUpdater.addFunc(buildEventACF); 
-actUpdater.addFunc(assignCats); 
-actUpdater.call(); 
+vpaUpdater.addFunc(getId); 
+vpaUpdater.addFunc(buildActACF); 
+vpaUpdater.addFunc(buildEventACF); 
+vpaUpdater.addFunc(assignCats); 
+
+module.exports = {
+    vpaCreator: vpaCreator, 
+    vpaUpdater: vpaUpdater
+}; 
