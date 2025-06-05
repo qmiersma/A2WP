@@ -10,6 +10,6 @@ module.exports = async function (context, myTimer) {
     vpa.vpaCreator.auth = vpaAuth; 
     vpa.vpaCreator.call(); 
 
-    // mlk.mlkCreator.auth = mlkAuth; 
-    // mlk.mlkCreator.call(); 
+    mlk.mlkCreator.auth = mlkAuth; 
+    mlk.mlkCreator.call(); 
 };

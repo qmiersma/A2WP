@@ -21,6 +21,8 @@ EDGE CASES
 - Amilia/WP returns more than 1 page of results (>100)
 - Amilia doesn't have a thumbnail available
 
+MLK SITE DOES NOT (!) NEED updateA2WP
+
 REBUILD
 NOTES: 
 You will never push to amilia, so that's only a POST endpoint

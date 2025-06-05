@@ -74,13 +74,10 @@ add_action( 'wp_enqueue_scripts', 'pathfinder_child_scripts' );
 
 /* -------- Amilia > Wordpress API --------*/
 function amilia_to_wp() {
-	// wp_enqueue_script('a2wp', get_stylesheet_directory_uri() . '/js/a2wp.js', array(), '', true); 
-	// wp_enqueue_script('call-a2wp', get_stylesheet_directory_uri() . '/js/call-a2wp.js', array(), '', true); 
+	$home_url = get_home_url(); 
+	$regex = "/\/*[^\/]+-+[\d]+\/*$/"; 
 
-	wp_localize_script('a2wp', 'apiData', array(
-    	'nonce' => wp_create_nonce('wp_rest'),
-        'path' => get_stylesheet_directory_uri()
-    )); 
+	if (preg_match($regex, $home_url)) wp_remote_post("https://a2wp.azurewebsites.net/api/UpdateA2WP"); 
 }
 add_action('wp_enqueue_scripts', 'amilia_to_wp'); 
 

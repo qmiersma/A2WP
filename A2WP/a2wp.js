@@ -7,7 +7,6 @@ module.exports = {
             this.auth = auth; 
             this.catDefs = categories; 
             this.customFuncs = []; 
-            //this.window = window.location.pathname; 
             this.msg = msg; 
         }
     

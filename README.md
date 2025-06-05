@@ -15,19 +15,20 @@ updateA2WP executes on an HTTP trigger and should only call A2WP instances that 
 To include a new instance, open up createA2WP/updateA2WP and add 1) the path to your script, 2) your site's WP Application Password, and then 3) call the instance. The code should look like this: 
 
 ```
-const fakeInstance = require("../A2WP/fake-a2wp.js"); 
+const fake = require("../A2WP/fake-a2wp.js"); 
 
 module.exports = async function (context, myTimer) {
     // WP Application Password setup
     const fakeAuth = `Basic ${btoa("appsadmin:" + process.env.FAKE_PASS)}`; 
 
     // Calling objs
-    fakeInstance.fakeCreator.auth = fakeAuth; 
-    fakeInstance.fakeCreator.call(); 
+    fake.fakeCreator.auth = fakeAuth; 
+    fake.fakeCreator.call(); 
 };
 ```
+If you're adding an instance to updateA2WP, you'll also need to add ``fake.fakeUpdater.wp.args += `&slug=${slug}`;`` in the line before using call(). 
 
-To see how to make the scripts you'll need to include in the require(), please read the [documentation](#). These will be how A2WP manipulates the Amilia data -- and how it decides what to post and delete. 
+To see how to make the scripts you'll need to include in the require(), please read the [documentation](https://github.com/qmiersma/A2WP/raw/refs/heads/main/a2wp-documentation.docx). These will be how A2WP manipulates the Amilia data -- and how it decides what to post and delete. 
 
 The FAKE_PASS referenced here is an environment var you'll need to make within this Azure project. The value of this password should be your WP site's Application Password. The username should be appsadmin, meaning your WP site needs an account named appsadmin. 
 
@@ -41,13 +42,10 @@ Inside this folder is functions.php. Copy-paste this code into the file (don't e
 ```
 /* -------- Amilia > Wordpress API --------*/
 function amilia_to_wp() {
-	// wp_enqueue_script('a2wp', get_stylesheet_directory_uri() . '/js/a2wp.js', array(), '', true); 
-	// wp_enqueue_script('call-a2wp', get_stylesheet_directory_uri() . '/js/call-a2wp.js', array(), '', true); 
+	$home_url = get_home_url(); 
+	$regex = "/\/*[^\/]+-+[\d]+\/*$/"; 
 
-	wp_localize_script('a2wp', 'apiData', array(
-    	'nonce' => wp_create_nonce('wp_rest'),
-        'path' => get_stylesheet_directory_uri()
-    )); 
+	if (preg_match($regex, $home_url)) wp_remote_post("https://a2wp.azurewebsites.net/api/UpdateA2WP"); 
 }
 add_action('wp_enqueue_scripts', 'amilia_to_wp'); 
 

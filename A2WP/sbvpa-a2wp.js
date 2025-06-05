@@ -232,8 +232,6 @@ vpaCreator.addFunc(buildActACF);
 vpaCreator.addFunc(buildEventACF); 
 vpaCreator.addFunc(assignCats);
 
-//let slug = window.location.pathname.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); // CHANGE THIS, use origin header w regex
-
 // Updates data for 1 specific activity
 let vpaUpdater = new A2WP({
     amilia: {
@@ -242,7 +240,6 @@ let vpaUpdater = new A2WP({
     wp: {
         url: "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/",
         endpoint: "activities", 
-        //args: `amilia_id&slug=${slug}`
         args: `amilia_id`
     }, 
     categories: actCategories, 
