@@ -74,12 +74,18 @@ add_action( 'wp_enqueue_scripts', 'pathfinder_child_scripts' );
 
 /* -------- Amilia > Wordpress API --------*/
 function amilia_to_wp() {
-	$home_url = get_home_url(); 
-	$regex = "/\/*[^\/]+-+[\d]+\/*$/"; 
+	$path = $_SERVER["REQUEST_URI"]; 
+	$regex = "/\/+[^\/\W]+-+[\d]+\/*$/"; 
 
-	if (preg_match($regex, $home_url)) wp_remote_post("https://a2wp.azurewebsites.net/api/UpdateA2WP"); 
+	if (preg_match($regex, $path)) {
+		error_log(print_r("Slug matched! Running updateA2WP", true)); 
+		wp_remote_post("https://a2wp.azurewebsites.net/api/UpdateA2WP", 
+		[
+			'headers' => ['request_path' => $path]
+		]); 
+	} 
 }
-add_action('wp_enqueue_scripts', 'amilia_to_wp'); 
+add_action('init', 'amilia_to_wp'); 
 
 function add_amilia_id_field() {
     register_rest_field(
