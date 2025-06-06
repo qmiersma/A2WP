@@ -9,7 +9,6 @@ module.exports = async function (context, req) {
     }); 
 
     getRes = await getRes.json(); 
-    context.log(getRes); 
 
     context.res = {
         // status: 200, /* Defaults to 200 */

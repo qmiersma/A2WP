@@ -14,7 +14,8 @@ module.exports = {
             let info = {
                 method: method, 
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json", 
+                    "Cache-Control": "max-age=300"
                 }
             }; 
             if (args) url = `${url}?${args}`; 
@@ -160,6 +161,7 @@ module.exports = {
         async call() {
             console.trace("A2WP is running");
     
+            console.log("Fetching WordPress items..."); 
             let wpObj = await this.fetchData({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args}); 
             const totalPages = wpObj.totalPages; 
             wpObj = (wpObj.data) ? wpObj.data : []; 
@@ -167,6 +169,8 @@ module.exports = {
             if (totalPages > 1) {
                 wpObj = await this.fetchMorePages({url: `${this.wp.url}${this.wp.endpoint}`, method: "GET", site: "Wordpress", args: this.wp.args, obj: wpObj, fetchData: this.fetchData, totalPages: totalPages, nextPage: ""}); 
             }
+            
+            //console.log("GET URL -->", `${this.wp.url}${this.wp.endpoint}?${this.wp.args}`); 
     
             const endpoint = this.amilia.endpoint;
             const placeholder = endpoint.match(/\{[^\}]*\?*\}/);
@@ -179,6 +183,7 @@ module.exports = {
             }); 
     
             let amObj = []; 
+            console.log("Fetching Amilia items..."); 
     
             // If true, fetches data for 1 item; otherwise fetches for all
             if (placeholder) {
@@ -191,8 +196,6 @@ module.exports = {
                 if (!programs) return; // No Amilia data, quit script
                 programs = (programs.data.Items) ? programs.data.Items : [programs.data]; 
     
-                console.log("Programs -->", programs); // Debug
-    
                 // Reads thru visible programs, fetches activities for each, and adds to amObj
                 for (const program of programs) {
                     if (program.IsVisible) {
@@ -200,7 +203,6 @@ module.exports = {
                         const nextPage = getRes.nextPage; 
                         getRes = (getRes.data && getRes.data.Items) ? getRes.data.Items : [getRes.data]; 
     
-                        console.log(`Activities of program ${program.Id} -->`, getRes); // Debug
                         amObj = amObj.concat(getRes); 
     
                         if (nextPage != "") {
@@ -229,9 +231,6 @@ module.exports = {
     
             const objPost = results.objPost; 
             const objDel = results.objDel; 
-    
-            console.log("objPost -->", objPost); // Debug
-            console.log("objDel -->", objDel); // Debug
     
             for (const item of objPost) {
                 const imgUrl = item.PictureUrl; 

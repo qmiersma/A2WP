@@ -18,6 +18,7 @@ async function buildActACF(input) {
         let location = ""; 
         const schedules = (item.Schedules) ? item.Schedules[0].Locations : []; 
         for (const loc of schedules) {
+            console.log("Fetching activity location data"); 
             let getRes = await fetch("https://a2wp.azurewebsites.net/api/GetAmilia", {
                 method: "POST", 
                 body: JSON.stringify({"endpoint": `locations/${loc.Id}`})

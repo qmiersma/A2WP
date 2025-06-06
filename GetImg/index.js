@@ -19,7 +19,7 @@ module.exports = async function (context, req) {
     });
 
     let blob = await getRes.blob(); 
-    context.log("\n\nBLOB -->", blob); 
+    // context.log("\n\nBLOB -->", blob); 
 
     // Pushes new image to WP media
     let postRes = await fetch(mediaUrl, {
@@ -51,7 +51,6 @@ module.exports = async function (context, req) {
     });
 
     if (!postRes2.ok) context.log("\n\n", postRes2); 
-
 
     context.res = {
         //status:200,

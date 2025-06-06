@@ -2,15 +2,15 @@ const vpa = require("../A2WP/sbvpa-a2wp.js");
 
 module.exports = async function (context, req) {
     // Slug setup
-    const origin = req.get("origin"); 
-    const slug = origin.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); 
+    const path = req.headers.request_path; 
+    const slug = path.match(/(?<=\/)[^\/]*(?=\/*(?=$))/); 
 
     // WP Application Password setup
     const vpaAuth = `Basic ${btoa("appsadmin:" + process.env.SBVPA_PASS)}`; 
 
     // Calling objs
     vpa.vpaUpdater.auth = vpaAuth; 
-    vpa.vpaUpdater.wp.args += `&slug=${slug}`; 
+    vpa.vpaUpdater.wp.args += await `&slug=${slug}`; 
     vpa.vpaUpdater.call(); 
     
     context.res = {
