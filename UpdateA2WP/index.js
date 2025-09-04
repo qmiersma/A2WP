@@ -8,13 +8,16 @@ module.exports = async function (context, req) {
     // WP Application Password setup
     const vpaAuth = `Basic ${btoa("appsadmin:" + process.env.SBVPA_PASS)}`; 
 
-    // Calling objs
-    vpa.vpaUpdater.auth = vpaAuth; 
+    // Setting authorization and WP site URLs
+    vpa.vpaUpdater.auth = vpaAuth;
+    vpa.vpaUpdater.wp.url = process.env.SBVPA_URL; 
+
+    // Calling objs 
     vpa.vpaUpdater.wp.args += await `&slug=${slug}`; 
     vpa.vpaUpdater.call(); 
     
     context.res = {
-        // status: 200, /* Defaults to 200 */
+        status: 200, /* Defaults to 200 */
         // body: responseMessage
     };
 }

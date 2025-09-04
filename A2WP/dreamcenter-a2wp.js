@@ -1,8 +1,14 @@
 const A2WP = require("../A2WP/a2wp.js").A2WP; 
 
 function filterMLK(input) {
-    input.objPost = input.objPost.filter(item => item.CategoryId == "5843999"); 
+    input.objPost = input.objPost.filter(item => {
+        const locations = item.Schedules[0].Locations; 
+        if (locations.length < 1) return false; 
 
+        return locations[0].Id == 2137969; 
+    }); 
+
+    input.locationId = 2137969; 
     return input; 
 }
 
@@ -54,21 +60,31 @@ async function buildLocationACF(input) {
 
         // Builds location 
         let event_location = ""; 
-        const schedules = (item.Schedules) ? item.Schedules[0].Locations : []; 
-        for (const loc of schedules) {
-            let getRes = await fetch("https://amilia-img-proxy.azurewebsites.net/api/GetAmilia", {
-                method: "POST", 
-                body: JSON.stringify({"endpoint": `locations/${loc.Id}`})
+        let locationName = ""; 
+
+        try {
+            let getRes = await fetch(`${input.amUrl.url}locations/${input.locationId}`, {
+                method: "GET", 
+                cache: "force-cache",
+                headers: {
+                    "Authorization": input.amUrl.auth
+                }
             }); 
 
-            if (!getRes.ok) break; 
+            if (!getRes.ok) throw new Error("Failed to fetch location data"); 
             getRes = await getRes.json(); 
 
+            locationName = `at ${getRes.Name}`; 
             event_location += `${getRes.Address.Address1}, ${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}`; 
+        } catch(error) {
+            console.log(error); 
         }
 
         let acf = {event_location}; 
+        const altText = `${item.Name} ${locationName}`; 
+
         input.objPost[index].bodyData["acf"] = {...oldAcf, ...acf};
+        input.objPost[index].bodyData["altText"] = altText; 
     }
 
     return input; 
@@ -80,7 +96,6 @@ let mlkCreator = new A2WP({
         endpoint: "activities"
     }, 
     wp: {
-        url: "https://dreamcente2dev.wpenginepowered.com/wp-json/wp/v2/",
         endpoint: "events", 
         args: "amilia_id&status=publish&per_page=100"
     }, 

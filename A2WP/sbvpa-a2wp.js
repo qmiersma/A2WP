@@ -15,19 +15,28 @@ async function buildActACF(input) {
 
     for (const [index, item] of objPost.entries()) {
         // Builds location 
-        let location = ""; 
-        const schedules = (item.Schedules) ? item.Schedules[0].Locations : []; 
-        for (const loc of schedules) {
-            console.log("Fetching activity location data"); 
-            let getRes = await fetch("https://a2wp.azurewebsites.net/api/GetAmilia", {
-                method: "POST", 
-                body: JSON.stringify({"endpoint": `locations/${loc.Id}`})
-            }); 
+        let location = "";
+        let locationName = "";  
+        const locations = item.Schedules[0].Locations; 
 
-            if (!getRes.ok) break; 
-            getRes = await getRes.json(); 
+        if (locations.length > 0) {
+            try {
+                let getRes = await fetch(`${input.amUrl.url}locations/${locations[0].Id}`, {
+                    method: "GET", 
+                    cache: "force-cache",
+                    headers: {
+                        "Authorization": input.amUrl.auth
+                    }
+                }); 
 
-            location += `<a target="_blank" href="https://www.google.com/maps/dir//'${getRes.Address.Latitude},${getRes.Address.Longitude}'/@${getRes.Address.Latitude},${getRes.Address.Longitude}">${getRes.Name}</a>\n${getRes.Address.Address1}\n${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}\n\n`; 
+                if (!getRes.ok) throw new Error("Failed to fetch location data"); 
+                getRes = await getRes.json(); 
+
+                locationName = `at ${getRes.Name}`; 
+                location += `<a target="_blank" href="https://www.google.com/maps/dir//'${getRes.Address.Latitude},${getRes.Address.Longitude}'/@${getRes.Address.Latitude},${getRes.Address.Longitude}">${getRes.Name}</a>\n${getRes.Address.Address1}\n${getRes.Address.City}, ${getRes.Address.StateProvince} ${getRes.Address.ZipPostalCode}\n\n`; 
+            } catch(error) {
+                console.log(error); 
+            }
         }
 
         // Builds fees
@@ -42,9 +51,14 @@ async function buildActACF(input) {
         let spotsMsg = "<strong>Spots are still available!</strong> Click \"Register Here\" to sign up."; 
 
         if (item.SpotsRemaining != null && item.SpotsRemaining < 1) {
-            registration_button_text = "Spots Unavailable"; 
-            registration_link = ""; 
-            spotsMsg = "<strong>All spots are taken.</strong> We are no longer accepting registrations."; 
+            if (item.HasWaitListEnabled) {
+                registration_button_text = "Waitlist Here"; 
+                spotsMsg = "<strong>All spots are taken.</strong> Click \"Waitlist Here\" and get notified when a spot opens up."; 
+            } else {
+                registration_button_text = ""; 
+                registration_link = ""; 
+                spotsMsg = "<strong>All spots are taken.</strong> We are no longer accepting registrations."; 
+            }
         }
 
         // Builds more
@@ -52,9 +66,10 @@ async function buildActACF(input) {
         const note = (item.Note) ? item.Note : "";
         const more = `${prereq}\n\n${note}`; 
 
-        // Builds main content
+        // Builds main content and alt text
         const ages = (item.AgeSummary) ? `\n<strong>Ages:</strong> ${item.AgeSummary}` : ""; 
         const content = `${spotsMsg}${ages}\n\n${item.Description}`; 
+        const altText = `${item.Name} ${locationName}`; 
 
         let acf = {
             location, 
@@ -72,6 +87,7 @@ async function buildActACF(input) {
         input.objPost[index].bodyData["status"] = "publish"; 
         input.objPost[index].bodyData["slug"] = `activity-${item.Id}`; 
         input.objPost[index].bodyData["content"] = content; 
+        input.objPost[index].bodyData["altText"] = altText; 
         input.objPost[index].bodyData["acf"] = acf; 
         input.objPost[index].bodyData["amilia_id"] = `${item.Id}`; 
     }
@@ -171,49 +187,85 @@ function buildEventACF(input) {
     return input; 
 }
 
-function assignCats(input) {
+async function assignCats(input) {
     const objPost = input.objPost; 
-    const catDefs = input.catDefs; 
+    const ageMap = {
+        max: [5, 12, 19, 54, 99], 
+        id: [2, 3, 4, 5, 6]
+    }; 
 
-    objPost.forEach((item, index) => {
-        // Always includes event category so event ACFs are available
-        const ids = (catDefs["Categories"][item.ProgramName]) ? catDefs["Categories"][item.ProgramName] : []; 
-        const catIds = [85, ...ids]; 
+    // Assigns categories
+    try {
+        let getRes = await fetch(`${input.wpUrl.url}activity-categories?per_page=100`, {
+            method: "GET", 
+            cache: "force-cache"
+        });
 
-        let ageGroups = []; 
+        if (!getRes.ok) throw new Error("Failed to retrieve categories"); 
+        getRes = await getRes.json(); 
+        let wpCats = {}; 
+        const regex1 = /[^\W\d]\w+/ig; 
 
-        if (item.Age) {
-            let max = item.Age.Max; 
-            let min = item.Age.Min; 
+        // Gets all WP categories
+        for (const item of getRes) {
+            const names = item.name.match(regex1).filter((item) => item != "and" && item != "amp");
 
-            for (let i = 0; (min <= max) && (i < catDefs["Ages"]["Max"].length); i++) {
-                if (min <= catDefs["Ages"]["Max"][i]) {
-                    ageGroups.push(catDefs["Ages"]["Id"][i]); 
-                    min = catDefs["Ages"]["Max"][i];
-                } 
+            for (let name of names) {
+                name = name.toLowerCase(); 
+                if (wpCats[name]) {
+                    wpCats[name] = [...wpCats[name], item.id]; 
+                } else {
+                    wpCats[name] = [item.id]; 
+                }
             }
         }
 
-        input.objPost[index].bodyData["activity-categories"] = catIds; 
-        input.objPost[index].bodyData["age-groups"] = ageGroups; 
-    });
-    
-    return input; 
-}
+        for (const [index, item] of objPost.entries()) {
+            const keywordsOld = [item.Name, item.ProgramName, item.CategoryName, item.SubCategoryName];
+            let keywordsNew = []; 
+            let categories = []; 
+            let ages = []; 
 
-const actCategories = {
-    "Categories" : {
-        "Arts, Culture, and Education 2025": [67], 
-        "Aquatics 2025": [83, 69],
-        "Athletics 2025": [66], 
-        "Day Camps Summer 2025": [68], 
-        // "Events 2025": [85], 
-        "Health and Wellness 2025": [69]
-    }, 
-    "Ages": {
-        "Max": [5, 12, 19, 54, 55, 99], 
-        "Id": [2, 3, 4, 5, 105, 6]
+            for (const keyword of item.Keywords) {
+                keywordsOld.push(keyword.Name); 
+            }
+
+            for (const keyword of keywordsOld) {
+                const splitKeys = keyword.toLowerCase().match(regex1); 
+                keywordsNew = [...keywordsNew, ...splitKeys]; 
+            }
+
+            for (const keyword of keywordsNew) {
+                if (wpCats[keyword]) {
+                    const exists = wpCats[keyword].some(item => categories.includes(item)); 
+                    if (!exists) categories = [...categories, ...wpCats[keyword]];
+                } 
+            }
+
+            // Assigns ages
+            if (item.Age) {
+                let max = (item.Age.Max) ? item.Age.Max : 99; 
+                let min = (item.Age.Min) ? item.Age.Min : 0; 
+
+                if (max > 54 && min < 13) ageGroups.push(105); // Pushes "family" id
+
+                for (let i = 0; (min <= max) && (i < ageMap.max.length); i++) {
+                    if (min <= ageMap.max[i]) {
+                        ages.push(ageMap.id[i]); 
+                        min = ageMap.max[i];
+                    } 
+                }
+            }
+
+            // 85 sets "event" category by default to allow datetime info
+            input.objPost[index].bodyData["activity-categories"] = [85, ...categories]; 
+            input.objPost[index].bodyData["age-groups"] = ages; 
+        }
+    } catch(error) {
+        console.log(error); 
     }
+
+    return input; 
 }
 
 // Searches Amilia for all new activites that need to be pushed to WP
@@ -222,11 +274,9 @@ let vpaCreator = new A2WP({
         endpoint: "activities"
     }, 
     wp: {
-        url: "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/",
         endpoint: "activities", 
         args: "amilia_id&status=publish&per_page=100"
     }, 
-    categories: actCategories, 
     msg: "Activity created" 
 });
 vpaCreator.addFunc(buildActACF);  
@@ -239,17 +289,14 @@ let vpaUpdater = new A2WP({
         endpoint: "activities/{id}"
     }, 
     wp: {
-        url: "https://sbvpastg.wpenginepowered.com/wp-json/wp/v2/",
         endpoint: "activities", 
         args: `amilia_id`
     }, 
-    categories: actCategories, 
     msg: "Activity updated"
 }); 
 vpaUpdater.addFunc(getId); 
 vpaUpdater.addFunc(buildActACF); 
 vpaUpdater.addFunc(buildEventACF); 
-vpaUpdater.addFunc(assignCats); 
 
 module.exports = {
     vpaCreator: vpaCreator, 

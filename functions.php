@@ -73,6 +73,7 @@ function pathfinder_child_scripts() {
 add_action( 'wp_enqueue_scripts', 'pathfinder_child_scripts' );
 
 /* -------- Amilia > Wordpress API --------*/
+// Checks when to run A2WP
 function amilia_to_wp() {
 	$path = $_SERVER["REQUEST_URI"]; 
 	$regex = "/\/+[^\/\W]+-+[\d]+\/*$/"; 
@@ -87,6 +88,7 @@ function amilia_to_wp() {
 }
 add_action('init', 'amilia_to_wp'); 
 
+// Adds amilia id to the post metadata
 function add_amilia_id_field() {
     register_rest_field(
 		'activities', 
@@ -107,6 +109,7 @@ function add_amilia_id_field() {
 }
 add_action('rest_api_init', 'add_amilia_id_field');
 
+// Allows amilia id to be queried in URL
 function query_by_amilia_id($args, $request) {
 	if (isset($request["amilia_id"])) {
 		$args["meta_key"] = "amilia_id"; 
@@ -116,6 +119,17 @@ function query_by_amilia_id($args, $request) {
 	return $args; 
 }
 add_filter('rest_activities_query', 'query_by_amilia_id', 10, 2); 
+
+// Alerts WP editors when entering an A2WP-made post
+function alert_editor() {
+	if (isset($_GET["post"])) $amilia_id = get_post_meta($_GET["post"], 'amilia_id', true); 
+
+	if (isset($amilia_id) && $amilia_id != "") {
+		echo "<script>alert('This is an API-made post and can ONLY be edited through SmartRec Amilia. Any edits done in WP will not persist.')</script>"; 
+	}
+}
+add_action('admin_init', 'alert_editor'); 
+
 
 /* -------- OVERRIDDEN SCRIPTS --------*/
 function pathfinder_posted_on() {
